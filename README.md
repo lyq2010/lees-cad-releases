@@ -11,7 +11,7 @@
 
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
 ![Apple Silicon](https://img.shields.io/badge/macOS-Apple_Silicon-333333?logo=apple&logoColor=white)
-![0.1.0](https://img.shields.io/badge/版本-0.1.0-0891B2)
+![License](https://img.shields.io/badge/License-MIT_OR_Apache--2.0-blue)
 
 [下载 Windows 版](https://github.com/lyq2010/lees-cad-releases/releases/latest) · [下载 Mac 版](https://github.com/lyq2010/lees-cad-releases/releases/latest) · [更新记录](https://github.com/lyq2010/lees-cad-releases/releases) · [反馈问题](https://github.com/lyq2010/lees-cad-releases/issues)
 
@@ -26,19 +26,28 @@
 - **打开与输出** — DXF/DWG 读取与写出基础，以及 PDF、SVG、PNG 输出；复杂外部图纸的完整保真仍在完善。
 - **按自己的方式操作** — 菜单、工具栏、命令行与 CLI；界面支持简体中文和英文。
 
-0.1.0 是首个公开版本，适合基础二维绘图和使用副本评估兼容性。涉及未能完整保留的外部扩展数据时会拒绝保存；原生多重引线、动态块、完整外参管理、自动保存与崩溃恢复仍有缺口。重要图纸请保留原件并手动保存，不将当前版本视为任意工程图无损回存或完整 AutoCAD 替代。
+0.1.1 改善复杂 DWG 编辑后的保存：保留完整原生源数据库，合并实际编辑差异，回读校验字典、XData、扩展、材质和未修改的代理数据。无法安全表达的编辑或校验不一致仍会拒绝保存。代理数据保留不等于支持其插件内部编辑，格式兼容仍须按具体图纸验证。
 
-0.1.0 首发后修正了关于窗口的来源说明，并按维护者决定撤回旧包、重新发行同一版本。已下载早期包的用户请重新下载并核对最新 `SHA256SUMS`，手动安装；应用内更新不会提示同版本文案修正。
+Windows 仅提供 MSI，CLI 随安装版提供；macOS 安装、更新及 CLI 包保留。原生多重引线、动态块、完整外参管理、自动保存与崩溃恢复仍有缺口，重要图纸请保留原件。
 
-后续 Windows 发行仅提供 MSI 安装包，CLI 随安装版提供。0.1.0 中已发布的便携包作为历史资产保留，后续不再构建或提供便携包。
+## 常用能力
+
+| 功能 | 体验 |
+| --- | --- |
+| 二维绘图与编辑 | 常用几何对象、移动/复制/旋转/缩放与撤销重做 |
+| 组织和标注 | 图层、线型、颜色、文字、标注与静态块 |
+| 布局与出图 | 模型/布局工作区，输出 PDF、SVG、PNG |
+| DWG 保存 | 合并实际编辑，保留未修改源数据，回读不一致时拒绝保存 |
+| 中文交互 | 中英界面切换，中文命令提示、错误和设置窗口 |
+| 命令行 | CLI 随 Windows MSI 提供，Mac 提供独立 CLI ZIP |
 
 ## 选择你的版本
 
-| 平台 | 适用设备 | 安装或使用文件 |
-| --- | --- | --- |
-| Windows | x64，建议 Windows 11 | `lees-cad-0.1.0-windows-x64.msi` |
-| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.0-macos-aarch64.dmg` |
-| Mac 命令行 | Apple Silicon | `lees-cad-cli-0.1.0-macos-aarch64.zip` |
+| 平台 | 适用设备 | 安装或使用文件 | 更新记录 |
+| --- | --- | --- | --- |
+| Windows | x64，建议 Windows 11 | `lees-cad-0.1.1-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.1-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac 命令行 | Apple Silicon | `lees-cad-cli-0.1.1-macos-aarch64.zip` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
 
 本次发行只提供 Windows x64 与 Mac Apple Silicon。包声明的最低系统版本尚未完成逐版本实机验收；Intel Mac、Windows ARM64 等架构不在本次发行范围。
 
