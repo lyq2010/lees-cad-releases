@@ -10,6 +10,14 @@ $env:CARGO_BUILD_JOBS = '2'
 $env:CARGO_PROFILE_DEV_DEBUG = '0'
 $env:LEES_CAD_BUILD_DATE = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'cad-build'
+$env:CARGO_HOME = Join-Path $env:RUNNER_TEMP 'cad-cargo'
+# Quality tests do not measure optimized rendering performance. This is runner-local only;
+# release optimization stays unchanged, and no private cache is uploaded.
+New-Item -ItemType Directory -Force -Path $env:CARGO_HOME | Out-Null
+@'
+[profile.dev.package."*"]
+opt-level = 0
+'@ | Set-Content -LiteralPath (Join-Path $env:CARGO_HOME 'config.toml') -Encoding utf8
 $env:DIST = Join-Path $env:GITHUB_WORKSPACE 'public-assets'
 $env:LEES_CAD_CONFIG_DIR = Join-Path $env:RUNNER_TEMP 'cad-profile'
 New-Item -ItemType Directory -Force -Path $env:DIST, $env:LEES_CAD_CONFIG_DIR | Out-Null
@@ -17,7 +25,21 @@ $log = Join-Path $env:RUNNER_TEMP 'private-build.log'
 function Step([string]$Name, [scriptblock]$Work) {
   Write-Output "==> $Name"
   & $Work >> $log 2>&1
-  if ($LASTEXITCODE -ne 0) { throw "$Name failed; private build log is retained only on this runner" }
+  if ($LASTEXITCODE -ne 0) {
+    # Only identifiers/locations leave the runner. Never print code, assertions or raw logs.
+    $lines = Get-Content -LiteralPath $log
+    $tests = @($lines | ForEach-Object { if ($_ -match '^test (.+) \.\.\. FAILED$') { $Matches[1] } })
+    $locations = @($lines | ForEach-Object {
+      if ($_ -match 'panicked at (.*\.rs):([0-9]+):([0-9]+)' -or $_ -match '^\s*-->\s*(.*\.rs):([0-9]+):([0-9]+)') {
+        $path = $Matches[1] -replace '\\', '/'
+        $path = $path -replace '^.*private-source/', ''
+        "$path`:$($Matches[2])`:$($Matches[3])"
+      }
+    })
+    $codes = @($lines | ForEach-Object { if ($_ -match '^error\[([A-Z0-9]+)\]') { $Matches[1] } } | Select-Object -Unique)
+    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes} | ConvertTo-Json -Compress | Write-Output
+    throw "$Name failed; code and private build log remain only on this runner"
+  }
 }
 Push-Location $Source
 try {
