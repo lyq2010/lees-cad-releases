@@ -62,7 +62,15 @@ def upload(source, key, file, base, mutable=False):
     else:
         process_env = os.environ.copy()
         process_env["CLOUDFLARE_API_TOKEN"] = env("CF_API_TOKEN")
-        process_env["CLOUDFLARE_ACCOUNT_ID"] = env("CF_ACCOUNT_ID")
+        account = os.environ.get("CF_ACCOUNT_ID", "").strip()
+        if not account:
+            request = urllib.request.Request("https://api.cloudflare.com/client/v4/accounts", headers={"Authorization": "Bearer " + env("CF_API_TOKEN")})
+            with urllib.request.urlopen(request, timeout=15) as response:
+                result = json.load(response)
+            if not result.get("success") or len(result.get("result", [])) != 1:
+                raise RuntimeError("Set an explicit CF_ACCOUNT_ID for the R2 release account")
+            account = result["result"][0]["id"]
+        process_env["CLOUDFLARE_ACCOUNT_ID"] = account
         subprocess.run(["npm", "exec", "--yes", "--package", "wrangler@4.90.0", "--", "wrangler", "r2", "object", "put", f'{env("R2_BUCKET")}/{key}', "--file", str(file), "--remote", "--cache-control", cache], env=process_env, check=True)
     for attempt in range(5):
         if public(url) == expected:
