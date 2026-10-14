@@ -43,6 +43,10 @@ function Step([string]$Name, [scriptblock]$Work) {
 }
 Push-Location $Source
 try {
+  if ($IsWindows) {
+    Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
+    Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
+  }
   Step 'install Rust 1.96.0' { rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy }
   Step 'format' { cargo +1.96.0 fmt --all -- --check }
   Step 'quality and regression' { cargo +1.96.0 xtask ci }
@@ -51,7 +55,6 @@ try {
   if ($IsWindows) {
     Step 'install WiX' { dotnet tool install --global wix --version 5.0.2 }
     Step 'WiX UI extension' { wix extension add -g WixToolset.UI.wixext/5.0.2 }
-    Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
     # GITHUB_ENV is read by later steps; this call also sets current process values.
     $env:WINDOWS_CERTIFICATE_PASSWORD = $env:LEESCAD_WINDOWS_PFX_PASSWORD
     Step 'Windows package' { & packaging/windows/package.ps1 -Arch x64 }
