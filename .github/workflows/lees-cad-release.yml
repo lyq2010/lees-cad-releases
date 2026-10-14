@@ -140,6 +140,8 @@ jobs:
           path: public-assets
           merge-multiple: true
       - run: sudo apt-get update -qq && sudo apt-get install -y minisign
+      - name: 镜像清理范围与分页回归
+        run: python3 release-tools/lees-cad/test-prune.py
       - name: 合并同一源码的双平台清单并验签
         env:
           SOURCE_SHA: ${{ needs.validate.outputs.revision }}
@@ -251,3 +253,55 @@ jobs:
       - run: python3 release-tools/lees-cad/mirror.py promote r2 public-assets
       - name: 仅上传公开白名单资产
         run: node release-tools/lees-cad/publish.mjs public-assets
+
+  cleanup-cos:
+    if: ${{ inputs.publish }}
+    needs: promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+      TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+      TENCENT_COS_SECRET_ID: ${{ secrets.TENCENT_COS_SECRET_ID }}
+      TENCENT_COS_SECRET_KEY: ${{ secrets.TENCENT_COS_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lees-cad-verified
+          path: public-assets
+      - run: sudo apt-get update -qq && sudo apt-get install -y minisign
+      - run: python3 -m pip install cos-python-sdk-v5==1.9.38
+      - run: python3 release-tools/lees-cad/prune.py cos public-assets
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lees-cad-cleanup-cos
+          path: public-assets/cleanup-cos.json
+          retention-days: 7
+
+  cleanup-r2:
+    if: ${{ inputs.publish }}
+    needs: promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lees-cad-verified
+          path: public-assets
+      - run: sudo apt-get update -qq && sudo apt-get install -y minisign
+      - run: python3 release-tools/lees-cad/prune.py r2 public-assets
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lees-cad-cleanup-r2
+          path: public-assets/cleanup-r2.json
+          retention-days: 7
