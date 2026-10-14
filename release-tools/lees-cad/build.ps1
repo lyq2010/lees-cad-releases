@@ -62,6 +62,9 @@ try {
   Step 'format' { cargo +1.96.0 fmt --all -- --check }
   Step 'quality and regression' { cargo +1.96.0 xtask ci }
   Step 'product identity' { python scripts/check-identity.py }
+  Step 'identity scanner regression' { python scripts/test-check-identity.py }
+  Step 'icon validator dependency' { python -m pip install pillow==12.3.0 }
+  Step 'approved application icon frames' { python scripts/test-app-icons.py }
   # The private source remote is intentionally absent in an Actions checkout.
   if ($IsWindows) {
     Step 'install WiX' { dotnet tool install --global wix --version 5.0.2 }

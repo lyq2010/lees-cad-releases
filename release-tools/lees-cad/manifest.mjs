@@ -12,7 +12,9 @@ for (const target of ['windows-x86_64', 'darwin-aarch64']) {
   const {bundleId, minOs, binarySha256, signerCertificateSha256, artifact} = row;
   platforms[target] = {bundleId, minOs, binarySha256, signerCertificateSha256, artifact};
 }
-const payload = {schemaVersion:1, product:'lees-cad', channel:'stable', releaseId:`lees-cad-v${version}`, version, sourceRevision:revision, publishedAt:new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), notes:process.env.RELEASE_NOTES ?? `Lee's CAD ${version}。更新前请保存图纸。`, platforms};
+const notesFile = new URL(`./notes-${version}.md`, import.meta.url);
+const notes = process.env.RELEASE_NOTES ?? readFileSync(notesFile, 'utf8');
+const payload = {schemaVersion:1, product:'lees-cad', channel:'stable', releaseId:`lees-cad-v${version}`, version, sourceRevision:revision, publishedAt:new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), notes, platforms};
 const bytes = Buffer.from(JSON.stringify(payload)), signature = sign(null, bytes, key);
 if (!verify(null, bytes, createPublicKey(key), signature)) throw new Error('Release signature verification failed');
 writeFileSync(join(root, 'release-manifest.json'), JSON.stringify({keyId:config.keyId, payloadBase64:bytes.toString('base64'), signatureBase64:signature.toString('base64')}, null, 2) + '\n', {flag:'wx'});
