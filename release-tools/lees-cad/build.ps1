@@ -24,8 +24,16 @@ New-Item -ItemType Directory -Force -Path $env:DIST, $env:LEES_CAD_CONFIG_DIR | 
 $log = Join-Path $env:RUNNER_TEMP 'private-build.log'
 function Step([string]$Name, [scriptblock]$Work) {
   Write-Output "==> $Name"
-  & $Work >> $log 2>&1
-  if ($LASTEXITCODE -ne 0) {
+  $failed = $false
+  try {
+    & $Work >> $log 2>&1
+    $failed = $LASTEXITCODE -ne 0
+  } catch {
+    # Terminating PowerShell errors must not escape with private source excerpts.
+    $_ | Out-String | Add-Content -LiteralPath $log
+    $failed = $true
+  }
+  if ($failed) {
     # Only identifiers/locations leave the runner. Never print code, assertions or raw logs.
     $lines = Get-Content -LiteralPath $log
     $tests = @($lines | ForEach-Object { if ($_ -match '^test (.+) \.\.\. FAILED$') { $Matches[1] } })
@@ -36,13 +44,16 @@ function Step([string]$Name, [scriptblock]$Work) {
         "$path`:$($Matches[2])`:$($Matches[3])"
       }
     })
-    $codes = @($lines | ForEach-Object { if ($_ -match '^error\[([A-Z0-9]+)\]') { $Matches[1] } } | Select-Object -Unique)
+    $codes = @($lines | ForEach-Object {
+      if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
+    } | Select-Object -Unique)
     @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes} | ConvertTo-Json -Compress | Write-Output
     throw "$Name failed; code and private build log remain only on this runner"
   }
 }
 Push-Location $Source
 try {
+  Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
   if ($IsWindows) {
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
