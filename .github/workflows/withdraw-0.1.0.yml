@@ -1,0 +1,37 @@
+name: 撤回 CAD 原始 0.1.0
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: lees-cad-release
+  cancel-in-progress: false
+jobs:
+  withdraw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+      TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+      TENCENT_COS_SECRET_ID: ${{ secrets.TENCENT_COS_SECRET_ID }}
+      TENCENT_COS_SECRET_KEY: ${{ secrets.TENCENT_COS_SECRET_KEY }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: sudo apt-get update -qq && sudo apt-get install -y minisign
+      - run: python3 -m pip install cos-python-sdk-v5==1.9.38
+      - name: 读取原始资产并核实旧 tag
+        run: |
+          test "$(gh api repos/lyq2010/lees-cad-releases/git/ref/tags/lees-cad-v0.1.0 --jq .object.sha)" = "85c502d80615a168b1e5d7710cf0492a19ce68da"
+          gh release download lees-cad-v0.1.0 --repo lyq2010/lees-cad-releases --dir old-assets
+      - name: 仅撤回已验签的原始 CAD 0.1.0 对象
+        run: python3 release-tools/lees-cad/withdraw-0.1.0.py old-assets
+      - name: 删除原始 Release 与对应 tag
+        run: gh release delete lees-cad-v0.1.0 --repo lyq2010/lees-cad-releases --cleanup-tag --yes
