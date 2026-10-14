@@ -30,12 +30,13 @@
 
 0.1.0 首发后修正了关于窗口的来源说明，并按维护者决定撤回旧包、重新发行同一版本。已下载早期包的用户请重新下载并核对最新 `SHA256SUMS`，手动安装；应用内更新不会提示同版本文案修正。
 
+后续 Windows 发行仅提供 MSI 安装包，CLI 随安装版提供。0.1.0 中已发布的便携包作为历史资产保留，后续不再构建或提供便携包。
+
 ## 选择你的版本
 
 | 平台 | 适用设备 | 安装或使用文件 |
 | --- | --- | --- |
 | Windows | x64，建议 Windows 11 | `lees-cad-0.1.0-windows-x64.msi` |
-| Windows 便携版 | 同上，解压后运行 | `lees-cad-0.1.0-windows-x64-portable.zip` |
 | Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.0-macos-aarch64.dmg` |
 | Mac 命令行 | Apple Silicon | `lees-cad-cli-0.1.0-macos-aarch64.zip` |
 
@@ -45,7 +46,7 @@
 
 1. 下载并运行 `.msi`，按安装器提示确认权限，将应用安装到本机。
 2. 从开始菜单打开 **Lee's CAD**；桌面快捷方式可在安装时选择。
-3. 便携版解压到可写目录，运行 `lees-cad.exe`；命令行工具为 `lees-cad-cli.exe`。
+3. 安装目录中同时提供命令行工具 `lees-cad-cli.exe`。
 
 Windows 包使用维护者自签证书；系统可能显示未知发布者或信任提示，安装器不会自动导入证书。下载来自本仓库的文件，并用发行版 `SHA256SUMS` 校验。
 
@@ -59,7 +60,7 @@ Mac 版采用 ad-hoc 签名，不使用 Developer ID 或 Apple 公证。`.app.ta
 
 ## 命令行也能处理图纸
 
-Windows CLI 随安装版和便携版提供；Mac CLI 使用独立 ZIP。
+Windows CLI 随 MSI 安装版提供；Mac CLI 使用独立 ZIP。
 
 ```text
 lees-cad-cli --version
@@ -74,7 +75,7 @@ lees-cad-cli convert example.dxf output.pdf
 
 图纸在本机处理，应用不自动上传工程图，不要求厂商账户。帮助菜单「检查更新」由你主动触发；离线设置可阻止更新联网。更新优先使用维护者 COS 主源，并检查 R2 备源，只接受通过发行清单签名、包签名、大小与 SHA-256 校验的资产。
 
-公开发行版同时提供安装包、便携包、独立签名、平台信息、签名发行清单及 `SHA256SUMS`。原始源码在私有仓库维护，公开仓不提供源码或构建日志。
+公开发行版提供安装包、应用更新包、CLI、独立签名、平台信息、签名发行清单及 `SHA256SUMS`。原始源码在私有仓库维护，公开仓不提供源码或构建日志。
 
 ## 反馈与许可
 

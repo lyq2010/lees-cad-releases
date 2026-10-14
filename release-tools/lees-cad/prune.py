@@ -14,9 +14,12 @@ VERSION = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
 
 
 def names(version):
-    binaries = [f"lees-cad-{version}-windows-x64.msi", f"lees-cad-{version}-windows-x64-portable.zip",
+    binaries = [f"lees-cad-{version}-windows-x64.msi",
                 f"lees-cad-{version}-macos-aarch64.dmg", f"lees-cad-{version}-macos-aarch64.app.tar.gz",
                 f"lees-cad-cli-{version}-macos-aarch64.zip"]
+    # Published 0.1.0 included a portable ZIP; later releases must still be able to prune it.
+    if version == "0.1.0":
+        binaries.append(f"lees-cad-{version}-windows-x64-portable.zip")
     return set(binaries + [name + ".minisig" for name in binaries] +
                ["windows-x86_64.json", "darwin-aarch64.json", "release-manifest.json", "SHA256SUMS", "verification.json"])
 

@@ -55,6 +55,7 @@ Push-Location $Source
 try {
   Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
   if ($IsWindows) {
+    Step 'Windows package selection regression' { & (Join-Path $PSScriptRoot 'test-windows-package.ps1') -Source $Source }
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
   }

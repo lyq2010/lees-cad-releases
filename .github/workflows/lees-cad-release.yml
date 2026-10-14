@@ -73,8 +73,6 @@ jobs:
           path: |
             public-assets/lees-cad-*-windows-x64.msi
             public-assets/lees-cad-*-windows-x64.msi.minisig
-            public-assets/lees-cad-*-windows-x64-portable.zip
-            public-assets/lees-cad-*-windows-x64-portable.zip.minisig
             public-assets/windows-x86_64.json
           if-no-files-found: error
           retention-days: 7
@@ -161,8 +159,6 @@ jobs:
             public-assets/lees-cad-*.dmg.minisig
             public-assets/lees-cad-*.app.tar.gz
             public-assets/lees-cad-*.app.tar.gz.minisig
-            public-assets/lees-cad-*-portable.zip
-            public-assets/lees-cad-*-portable.zip.minisig
             public-assets/lees-cad-cli-*.zip
             public-assets/lees-cad-cli-*.zip.minisig
             public-assets/windows-x86_64.json

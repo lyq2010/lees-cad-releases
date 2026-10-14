@@ -12,6 +12,15 @@ class PruneTests(unittest.TestCase):
         current = "lees-cad/releases/0.1.1/release-manifest.json"
         self.assertEqual(prune.plan([old, current], "0.1.1"), [old])
 
+    def test_legacy_portable_and_signature_are_pruned(self):
+        old = "lees-cad/releases/0.1.0/lees-cad-0.1.0-windows-x64-portable.zip"
+        self.assertEqual(prune.plan([old, old + ".minisig"], "0.1.1"), [old, old + ".minisig"])
+        self.assertEqual(prune.plan([old, old + ".minisig"], "0.1.0"), [])
+
+    def test_new_portable_is_not_a_recognized_release_object(self):
+        new = "lees-cad/releases/0.1.1/lees-cad-0.1.1-windows-x64-portable.zip"
+        with self.assertRaises(RuntimeError): prune.plan([new], "0.1.1")
+
     def test_other_products_and_stable_never_deleted(self):
         for key in ("lees-mail/releases/0.1.0/file.msi", "lees-cad/stable/latest.json", "lees-cad/releases-other/0.1.0/file.msi"):
             with self.assertRaises(RuntimeError): prune.plan([key], "0.1.1")
