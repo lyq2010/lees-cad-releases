@@ -14,7 +14,9 @@ $zip = Join-Path $root $asset
 Invoke-WebRequest -Uri "https://github.com/jedisct1/minisign/releases/download/0.12/$asset" -OutFile $zip
 if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) { throw 'Minisign tool digest mismatch' }
 Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $root 'tool')
-$tool = Get-ChildItem -Path (Join-Path $root 'tool') -Recurse -File | Where-Object Name -eq $name | Select-Object -First 1
+$tools = Get-ChildItem -Path (Join-Path $root 'tool') -Recurse -File | Where-Object Name -eq $name
+if ($IsWindows) { $tools = $tools | Where-Object FullName -Match '\\x86_64\\' }
+$tool = $tools | Select-Object -First 1
 if (!$tool) { throw 'Minisign tool missing' }
 if (!$IsWindows) { chmod +x $tool.FullName }
 $env:PATH = $tool.DirectoryName + [IO.Path]::PathSeparator + $env:PATH
