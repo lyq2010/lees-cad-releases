@@ -146,7 +146,9 @@ jobs:
           merge-multiple: true
       - run: sudo apt-get update -qq && sudo apt-get install -y minisign
       - name: 镜像清理范围与分页回归
-        run: python3 release-tools/lees-cad/test-prune.py
+        run: |
+          python3 release-tools/lees-cad/test-prune.py
+          python3 release-tools/lees-cad/test-mirror.py
       - name: 合并同一源码的双平台清单并验签
         env:
           SOURCE_SHA: ${{ needs.validate.outputs.revision }}
@@ -252,8 +254,7 @@ jobs:
           merge-multiple: true
       - run: sudo apt-get update -qq && sudo apt-get install -y minisign
       - run: python3 -m pip install cos-python-sdk-v5==1.9.38
-      - run: python3 release-tools/lees-cad/mirror.py promote cos public-assets
-      - run: python3 release-tools/lees-cad/mirror.py promote r2 public-assets
+      - run: python3 release-tools/lees-cad/mirror.py promote both public-assets
       - name: 仅上传公开白名单资产
         run: node release-tools/lees-cad/publish.mjs public-assets
 

@@ -68,7 +68,6 @@ try {
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
   }
   Step 'install Rust 1.96.0' { rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy }
-  Step 'format' { cargo +1.96.0 fmt --all -- --check }
   # Same gates as xtask ci, separately timed without exposing their output.
   Step 'quality format' { cargo +1.96.0 fmt --all -- --check }
   Step 'clippy' { cargo +1.96.0 clippy --workspace --locked --all-targets -- -D warnings }

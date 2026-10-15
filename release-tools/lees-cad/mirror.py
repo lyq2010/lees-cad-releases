@@ -80,9 +80,48 @@ def upload(source, key, file, base, mutable=False):
     raise RuntimeError("Full public GET readback differs")
 
 
+def check_latest(s, root, verified, config, script):
+    url = urllib.parse.urljoin(config["cosBaseUrl" if s == "cos" else "r2BaseUrl"], "lees-cad/stable/latest.json")
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 LeesCADRelease/1", "Cache-Control": "no-cache"})
+        with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+            previous = response.read(65537)
+        if len(previous) > 65536:
+            raise RuntimeError("Previous latest oversized")
+        old = root / f"previous-{s}.json"
+        old.write_bytes(previous)
+        prior = json.loads(subprocess.check_output(["node", str(script / "verify.mjs"), "--manifest", str(old)], text=True))
+        version = lambda value: tuple(map(int, value.split(".")))
+        if version(prior["payload"]["version"]) > version(verified["payload"]["version"]) or (prior["payload"]["version"] == verified["payload"]["version"] and prior["payloadSha256"] != verified["payloadSha256"]):
+            raise RuntimeError("Refusing downgrade or equal-version conflict")
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+
+
+def promote(root, verified, files, config, script):
+    p = verified["payload"]
+    readiness = [json.loads((root / f"readiness-{s}.json").read_text()) for s in ("cos", "r2")]
+    for s, row in zip(("cos", "r2"), readiness):
+        if row != {"source": s, "verified": True, "version": p["version"], "payloadSha256": verified["payloadSha256"], "runId": env("GITHUB_RUN_ID")}:
+            raise RuntimeError("Both independent mirror jobs must agree")
+    # Full readback of both immutable sources once, before either latest changes.
+    for s in ("cos", "r2"):
+        origin = config["cosBaseUrl" if s == "cos" else "r2BaseUrl"]
+        for key, file in files.items():
+            if public(urllib.parse.urljoin(origin, key)) != digest(file):
+                raise RuntimeError("Mirror readiness no longer holds")
+        check_latest(s, root, verified, config, script)
+    for s in ("cos", "r2"):
+        # Latest is small and mutable: recheck immediately before each write.
+        check_latest(s, root, verified, config, script)
+        base = config["cosBaseUrl" if s == "cos" else "r2BaseUrl"]
+        upload(s, "lees-cad/stable/latest.json", root / "release-manifest.json", base, mutable=True)
+
+
 def main():
     mode, source, folder = sys.argv[1:]
-    if mode not in ("stage", "promote") or source not in ("cos", "r2"):
+    if (mode == "stage" and source not in ("cos", "r2")) or (mode == "promote" and source != "both") or mode not in ("stage", "promote"):
         raise RuntimeError("Invalid mirror operation")
     root = Path(folder)
     script = Path(__file__).parent
@@ -98,33 +137,7 @@ def main():
             upload(source, key, file, base)
         (root / f"readiness-{source}.json").write_text(json.dumps({"source": source, "verified": True, "version": p["version"], "payloadSha256": verified["payloadSha256"], "runId": env("GITHUB_RUN_ID")}) + "\n")
         return
-    readiness = [json.loads((root / f"readiness-{s}.json").read_text()) for s in ("cos", "r2")]
-    for s, row in zip(("cos", "r2"), readiness):
-        if row != {"source": s, "verified": True, "version": p["version"], "payloadSha256": verified["payloadSha256"], "runId": env("GITHUB_RUN_ID")}:
-            raise RuntimeError("Both independent mirror jobs must agree")
-    # Recheck both immutable sources before either latest pointer changes.
-    for s in ("cos", "r2"):
-        origin = config["cosBaseUrl" if s == "cos" else "r2BaseUrl"]
-        for key, file in files.items():
-            if public(urllib.parse.urljoin(origin, key)) != digest(file):
-                raise RuntimeError("Mirror readiness no longer holds")
-        url = urllib.parse.urljoin(origin, "lees-cad/stable/latest.json")
-        try:
-            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 LeesCADRelease/1", "Cache-Control": "no-cache"})
-            with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
-                previous = response.read(65537)
-            if len(previous) > 65536:
-                raise RuntimeError("Previous latest oversized")
-            old = root / f"previous-{s}.json"
-            old.write_bytes(previous)
-            prior = json.loads(subprocess.check_output(["node", str(script / "verify.mjs"), "--manifest", str(old)], text=True))
-            version = lambda value: tuple(map(int, value.split(".")))
-            if version(prior["payload"]["version"]) > version(p["version"]) or (prior["payload"]["version"] == p["version"] and prior["payloadSha256"] != verified["payloadSha256"]):
-                raise RuntimeError("Refusing downgrade or equal-version conflict")
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                raise
-    upload(source, "lees-cad/stable/latest.json", root / "release-manifest.json", base, mutable=True)
+    promote(root, verified, files, config, script)
 
 
 if __name__ == "__main__":
