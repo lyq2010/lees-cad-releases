@@ -1,4 +1,4 @@
-name: Lee's CAD 双平台闭源发行
+name: Lee's CAD Release
 
 on:
   workflow_dispatch:
