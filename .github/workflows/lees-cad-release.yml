@@ -16,6 +16,10 @@ on:
         type: choice
         options: ['4', '2']
         default: '4'
+      reuse_run_id:
+        description: 可选：复用同仓成功原生构建的已验签资产；留空重新构建
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -26,8 +30,13 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       revision: ${{ steps.identity.outputs.revision }}
+      reuse_run_id: ${{ steps.reuse.outputs.run_id }}
+      reuse_artifact_id: ${{ steps.reuse.outputs.artifact_id }}
     steps:
       - id: identity
         env:
@@ -35,8 +44,20 @@ jobs:
         run: |
           [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
           echo "revision=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 产物复用来源保护回归
+        run: node --test release-tools/lees-cad/test-reuse.mjs
+      - id: reuse
+        if: ${{ inputs.reuse_run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
+        run: node release-tools/lees-cad/reuse.mjs "$REUSE_RUN_ID"
 
   build-windows:
+    if: ${{ inputs.reuse_run_id == '' }}
     needs: validate
     runs-on: windows-2025
     timeout-minutes: 90
@@ -91,6 +112,7 @@ jobs:
           retention-days: 7
 
   build-macos:
+    if: ${{ inputs.reuse_run_id == '' }}
     needs: validate
     runs-on: macos-26
     timeout-minutes: 90
@@ -147,31 +169,52 @@ jobs:
           retention-days: 7
 
   verify-artifacts:
+    if: ${{ !cancelled() && needs.validate.result == 'success' && (needs.validate.outputs.reuse_artifact_id != '' || (needs.build-windows.result == 'success' && needs.build-macos.result == 'success')) }}
     needs: [validate, build-windows, build-macos]
     runs-on: ubuntu-latest
-    env:
-      LEESCAD_RELEASE_PRIVATE_KEY: ${{ secrets.LEESCAD_RELEASE_PRIVATE_KEY }}
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ needs.validate.outputs.reuse_artifact_id == '' }}
         with:
           pattern: lees-cad-*
           path: public-assets
           merge-multiple: true
+      - name: 按已核实的精确 ID 下载成功构建产物
+        if: ${{ needs.validate.outputs.reuse_artifact_id != '' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.validate.outputs.reuse_artifact_id }}
+          merge-multiple: true
+          run-id: ${{ needs.validate.outputs.reuse_run_id }}
+          github-token: ${{ github.token }}
+          repository: lyq2010/lees-cad-releases
+          digest-mismatch: error
+          path: public-assets
       - run: sudo apt-get update -qq && sudo apt-get install -y minisign
       - name: 镜像清理范围与分页回归
         run: |
           python3 release-tools/lees-cad/test-prune.py
           python3 release-tools/lees-cad/test-mirror.py
       - name: 合并同一源码的双平台清单并验签
+        if: ${{ needs.validate.outputs.reuse_artifact_id == '' }}
         env:
           SOURCE_SHA: ${{ needs.validate.outputs.revision }}
+          LEESCAD_RELEASE_PRIVATE_KEY: ${{ secrets.LEESCAD_RELEASE_PRIVATE_KEY }}
         run: |
           version=$(node -p 'JSON.parse(require("fs").readFileSync("public-assets/windows-x86_64.json")).version')
           node release-tools/lees-cad/manifest.mjs public-assets "$version" "$SOURCE_SHA"
           node release-tools/lees-cad/verify.mjs public-assets > public-assets/verification.json
+      - name: 重验复用包签名、哈希及私有源码身份，不重新签清单
+        if: ${{ needs.validate.outputs.reuse_artifact_id != '' }}
+        env:
+          SOURCE_SHA: ${{ needs.validate.outputs.revision }}
+        run: node release-tools/lees-cad/reuse.mjs --verify public-assets "$SOURCE_SHA" > public-assets/verification.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lees-cad-verified
