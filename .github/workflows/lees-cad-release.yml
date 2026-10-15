@@ -62,6 +62,14 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      # Only public crates.io archives. Cargo validates them against Cargo.lock.
+      # Never cache registry/src, target, private-source, credentials or build logs.
+      - name: 缓存公开 crates.io 下载包
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/cad-cargo/registry/cache/index.crates.io-*
+          key: cargo-crates-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('private-source/Cargo.lock') }}
+          restore-keys: cargo-crates-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: 固定 Minisign 工具
         shell: pwsh
         run: release-repo/release-tools/lees-cad/setup-minisign.ps1
@@ -106,6 +114,14 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      # Only public crates.io archives. Cargo validates them against Cargo.lock.
+      # Never cache registry/src, target, private-source, credentials or build logs.
+      - name: 缓存公开 crates.io 下载包
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/cad-cargo/registry/cache/index.crates.io-*
+          key: cargo-crates-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('private-source/Cargo.lock') }}
+          restore-keys: cargo-crates-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: 固定 Minisign 工具
         shell: pwsh
         run: release-repo/release-tools/lees-cad/setup-minisign.ps1
