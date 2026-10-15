@@ -1,12 +1,15 @@
 # Kept in the public release repository; build logs and private checkout stay on the runner.
-param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Revision)
+param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Revision,
+      [ValidateSet(2, 4)][int]$WindowsJobs = 4)
 $ErrorActionPreference = 'Stop'
 if ($Revision -notmatch '^[a-f0-9]{40}$') { throw 'A fixed source SHA is required' }
 $Source = (Resolve-Path -LiteralPath $Source).Path
 if ((git -C $Source rev-parse HEAD) -ne $Revision) { throw 'Private checkout SHA differs' }
 $env:LEES_CAD_BUILD_SHA = $Revision
 $env:RUSTUP_TOOLCHAIN = '1.96.0'
-$env:CARGO_BUILD_JOBS = '2'
+. (Join-Path $PSScriptRoot 'build-settings.ps1')
+$env:CARGO_BUILD_JOBS = [string](Get-BuildJobs -WindowsHost $IsWindows -WindowsJobs $WindowsJobs)
+@{phase='build configuration'; logicalCpus=[Environment]::ProcessorCount; compilerJobs=[int]$env:CARGO_BUILD_JOBS} | ConvertTo-Json -Compress | Write-Output
 $env:CARGO_PROFILE_DEV_DEBUG = '0'
 $env:LEES_CAD_BUILD_DATE = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'cad-build'
@@ -24,6 +27,7 @@ New-Item -ItemType Directory -Force -Path $env:DIST, $env:LEES_CAD_CONFIG_DIR | 
 $log = Join-Path $env:RUNNER_TEMP 'private-build.log'
 function Step([string]$Name, [scriptblock]$Work) {
   Write-Output "==> $Name"
+  $timer = [Diagnostics.Stopwatch]::StartNew()
   $failed = $false
   try {
     & $Work >> $log 2>&1
@@ -33,6 +37,9 @@ function Step([string]$Name, [scriptblock]$Work) {
     $_ | Out-String | Add-Content -LiteralPath $log
     $failed = $true
   }
+  $timer.Stop()
+  @{phase=$Name; elapsedSeconds=[math]::Round($timer.Elapsed.TotalSeconds, 3);
+    result=$(if ($failed) { 'failed' } else { 'passed' })} | ConvertTo-Json -Compress | Write-Output
   if ($failed) {
     # Only identifiers/locations leave the runner. Never print code, assertions or raw logs.
     $lines = Get-Content -LiteralPath $log
@@ -54,6 +61,7 @@ function Step([string]$Name, [scriptblock]$Work) {
 Push-Location $Source
 try {
   Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
+  Step 'compiler budget regression' { & (Join-Path $PSScriptRoot 'test-build-settings.ps1') }
   if ($IsWindows) {
     Step 'Windows package selection regression' { & (Join-Path $PSScriptRoot 'test-windows-package.ps1') -Source $Source }
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
@@ -61,7 +69,12 @@ try {
   }
   Step 'install Rust 1.96.0' { rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy }
   Step 'format' { cargo +1.96.0 fmt --all -- --check }
-  Step 'quality and regression' { cargo +1.96.0 xtask ci }
+  # Same gates as xtask ci, separately timed without exposing their output.
+  Step 'quality format' { cargo +1.96.0 fmt --all -- --check }
+  Step 'clippy' { cargo +1.96.0 clippy --workspace --locked --all-targets -- -D warnings }
+  Step 'workspace tests' { cargo +1.96.0 test --workspace --locked --all-targets }
+  Step 'asset attribution' { cargo +1.96.0 xtask assets }
+  Step 'dependency layers' { cargo +1.96.0 xtask layers }
   Step 'product identity' { python scripts/check-identity.py }
   Step 'Chinese message coverage' { python scripts/check-translations.py }
   Step 'identity scanner regression' { python scripts/test-check-identity.py }
@@ -73,11 +86,13 @@ try {
     Step 'WiX UI extension' { wix extension add -g WixToolset.UI.wixext/5.0.2 }
     # GITHUB_ENV is read by later steps; this call also sets current process values.
     $env:WINDOWS_CERTIFICATE_PASSWORD = $env:LEESCAD_WINDOWS_PFX_PASSWORD
-    Step 'Windows package' { & packaging/windows/package.ps1 -Arch x64 }
+    Step 'Windows release compile' { & packaging/windows/package.ps1 -Arch x64 -BuildOnly }
+    Step 'Windows package and signing' { & packaging/windows/package.ps1 -Arch x64 -SkipBuild }
     Step 'Windows native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') --verify-update-artifact $env:DIST }
   } else {
     $env:MACOS_SIGN_IDENTITY = '-'
-    Step 'macOS package' { bash packaging/macos/package.sh --arch aarch64 }
+    Step 'macOS release compile' { bash packaging/macos/package.sh --arch aarch64 --build-only }
+    Step 'macOS package and signing' { bash packaging/macos/package.sh --arch aarch64 --skip-build }
     Step 'macOS native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'aarch64-apple-darwin/release/lees-cad') --verify-update-artifact $env:DIST }
   }
 } finally { Pop-Location }

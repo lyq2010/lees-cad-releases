@@ -11,6 +11,11 @@ on:
         description: 经明确授权后上传 COS/R2 并发布；CI 验证保持 false
         type: boolean
         default: false
+      windows_jobs:
+        description: Windows 编译并行数；授权运行时可对比 2/4，macOS 保持 2
+        type: choice
+        options: ['4', '2']
+        default: '4'
 
 permissions:
   contents: read
@@ -66,7 +71,7 @@ jobs:
           SOURCE_SHA: ${{ needs.validate.outputs.revision }}
         run: |
           git -C private-source remote set-url origin https://github.com/lyq2010/lees-cad.git
-          release-repo/release-tools/lees-cad/build.ps1 -Source private-source -Revision $env:SOURCE_SHA
+          release-repo/release-tools/lees-cad/build.ps1 -Source private-source -Revision $env:SOURCE_SHA -WindowsJobs ${{ inputs.windows_jobs }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lees-cad-windows

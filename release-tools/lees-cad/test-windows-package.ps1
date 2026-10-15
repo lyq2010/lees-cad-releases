@@ -4,10 +4,13 @@ $ErrorActionPreference = 'Stop'
 if (-not $Fixtures) { $Fixtures = Join-Path $env:RUNNER_TEMP "cad-package-selection-$([guid]::NewGuid().ToString('N'))" }
 if (Test-Path -LiteralPath $Fixtures) { throw 'Fixture directory already exists' }
 $variables = @('DIST', 'CARGO_TARGET_DIR', 'LEES_CAD_VERSION', 'LEES_CAD_BUILD_SHA', 'LEES_CAD_BUILD_DATE',
-    'LEESCAD_UPDATER_PRIVATE_KEY', 'WINDOWS_CERTIFICATE', 'WINDOWS_PFX_PATH', 'AZURE_CLIENT_SECRET')
+    'LEESCAD_UPDATER_PRIVATE_KEY', 'WINDOWS_CERTIFICATE', 'WINDOWS_PFX_PATH', 'AZURE_CLIENT_SECRET',
+    'CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_RUSTFLAGS', 'LEES_CAD_REQUIRE_WINRES')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name) }
 $signArguments = [Collections.Generic.List[string]]::new()
+$compileCalls = [Collections.Generic.List[string]]::new()
+function cargo { $compileCalls.Add('build'); $global:LASTEXITCODE = 0 }
 function wix {
     $outputIndex = [Array]::IndexOf($args, '-o')
     if ($outputIndex -lt 0) { throw 'Missing MSI output argument' }
@@ -41,7 +44,12 @@ try {
         [BitConverter]::GetBytes([uint16]$entry[1]).CopyTo($bytes, 0xdc)
         [IO.File]::WriteAllBytes((Join-Path $bin $entry[0]), $bytes)
     }
+    & (Join-Path $Source 'packaging/windows/package.ps1') -Arch arm64 -BuildOnly | Out-Null
+    if ($compileCalls.Count -ne 1 -or $signArguments.Count -or @(Get-ChildItem -LiteralPath $env:DIST -File).Count) {
+        throw 'Compile-only must compile once without packaging or signing'
+    }
     & (Join-Path $Source 'packaging/windows/package.ps1') -Arch arm64 -SkipBuild | Out-Null
+    if ($compileCalls.Count -ne 1) { throw 'Package-only must not recompile' }
     $msi = 'lees-cad-0.1.1-windows-arm64.msi'
     $files = @(Get-ChildItem -LiteralPath $env:DIST -File)
     if ($files.Count -ne 1 -or $files[0].Name -ne $msi) { throw 'Windows packaging must produce only MSI' }

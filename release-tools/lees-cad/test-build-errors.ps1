@@ -21,9 +21,12 @@ function Check-Failure([scriptblock]$Work, [string]$Code) {
     }
     $text = $output -join "`n"
     if ($text.Contains('PRIVATE_SOURCE_MARKER')) { throw 'Private failure details escaped' }
-    $summary = $output[1] | ConvertFrom-Json
+    $records = @($output | Where-Object { $_.StartsWith('{') } | ConvertFrom-Json)
+    $summary = $records | Where-Object { $_.PSObject.Properties.Name -contains 'compilerCodes' }
     if ($summary.phase -ne 'synthetic failure') { throw 'Failure phase missing' }
     if ($Code -and $Code -notin $summary.compilerCodes) { throw 'Diagnostic code missing' }
+    $timing = $records | Where-Object { $_.PSObject.Properties.Name -contains 'elapsedSeconds' }
+    if ($timing.result -ne 'failed' -or $timing.elapsedSeconds -lt 0) { throw 'Failure timing missing' }
 }
 Check-Failure { throw 'PRIVATE_SOURCE_MARKER' }
 Check-Failure {
@@ -31,5 +34,8 @@ Check-Failure {
     & pwsh -NoProfile -NonInteractive -Command 'exit 7'
 } 'WIX0367'
 $global:LASTEXITCODE = 0
-Step 'synthetic success' { Write-Output 'PRIVATE_SOURCE_MARKER' } | Out-Null
+$success = @(Step 'synthetic success' { Write-Output 'PRIVATE_SOURCE_MARKER' })
+if (($success -join '').Contains('PRIVATE_SOURCE_MARKER')) { throw 'Success details escaped' }
+$timing = $success | Where-Object { $_.StartsWith('{') } | ConvertFrom-Json
+if ($timing.result -ne 'passed' -or $timing.elapsedSeconds -lt 0) { throw 'Success timing missing' }
 Write-Output 'Build error regression passed: terminating errors, native exit codes, WiX diagnostics and success output stay isolated'
