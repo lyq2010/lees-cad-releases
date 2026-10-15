@@ -91,5 +91,3 @@ lees-cad-cli convert example.dxf output.pdf
 通过 [Issues](https://github.com/lyq2010/lees-cad-releases/issues) 提交应用版本、系统版本、文件格式和复现步骤。优先使用合成图或脱敏副本，请勿上传私人图纸、账号凭据或包含隐私的原始日志。
 
 随包提供 MIT / Apache-2.0 许可证、原作者版权和第三方归属声明。具体许可见安装目录中的 `LICENSE-MIT`、`LICENSE-APACHE`、`NOTICE` 与 `ATTRIBUTION.md`。
-
-Lee's CAD 独立维护，与 Autodesk, Inc. 无关联；AutoCAD 和 DWG 是 Autodesk, Inc. 的商标。
