@@ -52,7 +52,7 @@ class PruneTests(unittest.TestCase):
 
     def test_both_live_latest_are_required(self):
         config = {"cosBaseUrl": "https://cos.invalid/", "r2BaseUrl": "https://r2.invalid/"}
-        with patch.object(prune, "public", side_effect=[("a", 1), ("b", 1)]):
+        with patch.object(prune, "metadata", side_effect=[("a", 1), ("b", 1)]):
             with self.assertRaises(RuntimeError): prune.same_latest(config, ("a", 1))
 
 

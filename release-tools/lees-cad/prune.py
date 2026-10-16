@@ -1,13 +1,11 @@
 """Keep the signed current CAD release; prune only validated older CAD artifact keys."""
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 import urllib.parse
-import urllib.request
-from mirror import NoRedirect, digest, env, public
+from storage import cos_client, env, fingerprint, metadata, r2_path, r2_request
 
 PREFIX = "lees-cad/releases/"
 VERSION = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
@@ -81,9 +79,8 @@ def r2_keys(request, path, prefix):
 
 
 def same_latest(config, expected):
-    for field in ("cosBaseUrl", "r2BaseUrl"):
-        url = urllib.parse.urljoin(config[field], "lees-cad/stable/latest.json")
-        if public(url, limit=65536) != expected:
+    for source, field in (("cos", "cosBaseUrl"), ("r2", "r2BaseUrl")):
+        if metadata(source, "lees-cad/stable/latest.json", config[field]) != expected:
             raise RuntimeError("Both live latest pointers must match the verified release")
 
 
@@ -96,41 +93,17 @@ def main():
     verified = json.loads(subprocess.check_output(["node", str(script / "verify.mjs"), str(root)], text=True))
     current = verified["payload"]["version"]
     config = json.loads((script / "public-config.json").read_text())
-    expected = digest(root / "release-manifest.json")
+    expected = fingerprint(root / "release-manifest.json")
     same_latest(config, expected)
     if source == "cos":
-        from qcloud_cos import CosConfig, CosS3Client
-        client = CosS3Client(CosConfig(Region=env("TENCENT_COS_REGION"), SecretId=env("TENCENT_COS_SECRET_ID"),
-                                      SecretKey=env("TENCENT_COS_SECRET_KEY"), Scheme="https"))
+        client = cos_client()
         bucket = env("TENCENT_COS_BUCKET")
         base_prefix = urllib.parse.urlsplit(config["cosBaseUrl"]).path.strip("/")
         prefix = (base_prefix + "/" if base_prefix else "") + PREFIX
         listing = lambda: cos_keys(client, bucket, prefix)
         remove = lambda key: client.delete_object(Bucket=bucket, Key=key)
     else:
-        token = env("CF_API_TOKEN")
-
-        def request(path, method="GET"):
-            headers = {"Authorization": "Bearer " + token}
-            if method == "DELETE":
-                headers["cf-r2-data-catalog-check"] = "true"
-            req = urllib.request.Request("https://api.cloudflare.com/client/v4/" + path, headers=headers, method=method)
-            with urllib.request.build_opener(NoRedirect).open(req, timeout=30) as response:
-                data = response.read(4 * 1024 * 1024 + 1)
-            if len(data) > 4 * 1024 * 1024:
-                raise RuntimeError("R2 API response exceeds limit")
-            result = json.loads(data) if data else {"success": True}
-            if not result.get("success"):
-                raise RuntimeError("R2 API operation failed")
-            return result
-
-        account = os.environ.get("CF_ACCOUNT_ID", "").strip()
-        if not account:
-            accounts = request("accounts")["result"]
-            if len(accounts) != 1:
-                raise RuntimeError("A unique R2 account is required")
-            account = accounts[0]["id"]
-        path = "accounts/" + account + "/r2/buckets/" + urllib.parse.quote(env("R2_BUCKET"), safe="") + "/objects"
+        request, path = r2_request, r2_path()
         prefix = PREFIX
         listing = lambda: r2_keys(request, path, prefix)
         remove = lambda key: request(path + "/" + urllib.parse.quote(key, safe="/"), method="DELETE")
@@ -139,7 +112,7 @@ def main():
     if not required.issubset(keys):
         raise RuntimeError("Current release assets are missing from the mirror inventory")
     candidates = plan(keys, current, prefix)
-    # Recheck the signed publication immediately before destructive operations.
+    # Match both pointer metadata to the locally signed publication before deletion.
     same_latest(config, expected)
     for key in candidates:
         remove(key)

@@ -86,6 +86,8 @@ lees-cad-cli convert example.dxf output.pdf
 
 公开发行版提供安装包、应用更新包、CLI、独立签名、平台信息、签名发行清单及 `SHA256SUMS`。原始源码在私有仓库维护，公开仓不提供源码或构建日志。
 
+发行运维核对仅查 COS HEAD／R2 管理列表元数据，不下载存储桶对象或读取桶内清单正文；本地验签和完整哈希检查继续保留。具体边界见[镜像核对约束](release-tools/lees-cad/mirror-policy.md)。
+
 ## 反馈与许可
 
 通过 [Issues](https://github.com/lyq2010/lees-cad-releases/issues) 提交应用版本、系统版本、文件格式和复现步骤。优先使用合成图或脱敏副本，请勿上传私人图纸、账号凭据或包含隐私的原始日志。
