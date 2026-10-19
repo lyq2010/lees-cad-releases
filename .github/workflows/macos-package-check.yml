@@ -22,7 +22,8 @@ jobs:
           show-progress: false
       - name: Same installer dependencies
         shell: pwsh
-        run: python -m pip install --require-hashes --only-binary=:all: -r private-source/packaging/macos/dmg/requirements.txt
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r private-source/packaging/macos/dmg/requirements.txt
       - name: Isolated packaging fixture
         shell: bash
         env:
