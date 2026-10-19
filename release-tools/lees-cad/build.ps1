@@ -87,9 +87,17 @@ try {
     $env:WINDOWS_CERTIFICATE_PASSWORD = $env:LEESCAD_WINDOWS_PFX_PASSWORD
     Step 'Windows release compile' { & packaging/windows/package.ps1 -Arch x64 -BuildOnly }
     Step 'Windows package and signing' { & packaging/windows/package.ps1 -Arch x64 -SkipBuild }
+    Step 'Windows document associations' {
+      $packages = @(Get-ChildItem -LiteralPath $env:DIST -Filter '*-windows-x64.msi' -File)
+      if ($packages.Count -ne 1) { throw 'Expected exactly one Windows MSI for association validation' }
+      $exe = Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe'
+      & (Join-Path $PSScriptRoot 'test-windows-association-guards.ps1') -Msi $packages[0].FullName -Exe $exe `
+        -Fixtures (Join-Path $env:RUNNER_TEMP "association-guards-$([guid]::NewGuid().ToString('N'))")
+    }
     Step 'Windows native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') --verify-update-artifact $env:DIST }
   } else {
     $env:MACOS_SIGN_IDENTITY = '-'
+    Step 'macOS installer layout dependencies' { python -m pip install --require-hashes --only-binary=:all: -r packaging/macos/dmg/requirements.txt }
     Step 'macOS release compile' { bash packaging/macos/package.sh --arch aarch64 --build-only }
     Step 'macOS package and signing' { bash packaging/macos/package.sh --arch aarch64 --skip-build }
     Step 'macOS native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'aarch64-apple-darwin/release/lees-cad') --verify-update-artifact $env:DIST }
