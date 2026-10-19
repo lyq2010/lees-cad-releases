@@ -23,7 +23,12 @@ jobs:
       - name: Same installer dependencies
         shell: pwsh
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r private-source/packaging/macos/dmg/requirements.txt
+          $venv = Join-Path $env:RUNNER_TEMP 'cad-installer-python'
+          python -m venv $venv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $venv 'bin/python3') -m pip install --require-hashes --only-binary=:all: -r private-source/packaging/macos/dmg/requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Join-Path $venv 'bin') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Isolated packaging fixture
         shell: bash
         env:

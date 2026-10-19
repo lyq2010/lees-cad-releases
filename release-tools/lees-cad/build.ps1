@@ -97,7 +97,11 @@ try {
     Step 'Windows native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') --verify-update-artifact $env:DIST }
   } else {
     $env:MACOS_SIGN_IDENTITY = '-'
-    Step 'macOS installer layout dependencies' { python -m pip install --require-hashes --only-binary=:all: -r packaging/macos/dmg/requirements.txt }
+    # The runner's python and python3 may refer to different installations.
+    $installerPython = Join-Path $env:RUNNER_TEMP 'cad-installer-python'
+    Step 'macOS installer Python environment' { python -m venv $installerPython }
+    $env:PATH = (Join-Path $installerPython 'bin') + [IO.Path]::PathSeparator + $env:PATH
+    Step 'macOS installer layout dependencies' { python3 -m pip install --require-hashes --only-binary=:all: -r packaging/macos/dmg/requirements.txt }
     Step 'macOS release compile' { bash packaging/macos/package.sh --arch aarch64 --build-only }
     Step 'macOS package and signing' { bash packaging/macos/package.sh --arch aarch64 --skip-build }
     Step 'macOS native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'aarch64-apple-darwin/release/lees-cad') --verify-update-artifact $env:DIST }
