@@ -101,7 +101,10 @@ try {
       if ($packages.Count -ne 1) { throw 'Expected exactly one Windows MSI for font validation' }
       & (Join-Path $PSScriptRoot 'test-windows-fonts.ps1') -Msi $packages[0].FullName -Source $Source
     }
-    Step 'Windows native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') --verify-update-artifact $env:DIST }
+    Step 'Windows native artifact identity' {
+      & (Join-Path $PSScriptRoot 'test-windows-native-verifier.ps1') `
+        -Exe (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') -Artifacts $env:DIST
+    }
   } else {
     $env:MACOS_SIGN_IDENTITY = '-'
     # The runner's python and python3 may refer to different installations.
