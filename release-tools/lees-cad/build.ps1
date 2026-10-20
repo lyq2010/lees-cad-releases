@@ -62,6 +62,7 @@ Push-Location $Source
 try {
   Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
   Step 'compiler budget regression' { & (Join-Path $PSScriptRoot 'test-build-settings.ps1') }
+  Step 'MPL source archive regression' { python scripts/test-package-mpl-source.py }
   if ($IsWindows) {
     Step 'Windows package selection regression' { & (Join-Path $PSScriptRoot 'test-windows-package.ps1') -Source $Source }
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
