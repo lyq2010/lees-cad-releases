@@ -48,7 +48,7 @@ jobs:
         with:
           persist-credentials: false
       - name: 产物复用来源保护回归
-        run: node --test release-tools/lees-cad/test-reuse.mjs
+        run: node --test release-tools/lees-cad/test-reuse.mjs release-tools/lees-cad/test-artifact-contract.mjs
       - id: reuse
         if: ${{ inputs.reuse_run_id != '' }}
         env:
@@ -162,8 +162,6 @@ jobs:
             public-assets/lees-cad-*-macos-aarch64.dmg.minisig
             public-assets/lees-cad-*-macos-aarch64.app.tar.gz
             public-assets/lees-cad-*-macos-aarch64.app.tar.gz.minisig
-            public-assets/lees-cad-cli-*-macos-aarch64.zip
-            public-assets/lees-cad-cli-*-macos-aarch64.zip.minisig
             public-assets/darwin-aarch64.json
           if-no-files-found: error
           retention-days: 7
@@ -227,8 +225,6 @@ jobs:
             public-assets/lees-cad-*.dmg.minisig
             public-assets/lees-cad-*.app.tar.gz
             public-assets/lees-cad-*.app.tar.gz.minisig
-            public-assets/lees-cad-cli-*.zip
-            public-assets/lees-cad-cli-*.zip.minisig
             public-assets/windows-x86_64.json
             public-assets/darwin-aarch64.json
             public-assets/release-manifest.json

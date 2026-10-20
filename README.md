@@ -26,9 +26,9 @@
 - **打开与输出** — DXF/DWG 读取与写出基础，以及 PDF、SVG、PNG 输出；复杂外部图纸的完整保真仍在完善。
 - **按自己的方式操作** — 菜单、工具栏、命令行与 CLI；界面支持简体中文和英文。
 
-0.1.5 新增自动保存和图形恢复，内置 CAD 字体，改善中文输入、常用编辑、DWG 数据保留与二维出图。特定旧版关联图纸仅开放经引用校验的独立基础图元编辑，关联对象及不支持的语义继续保护；不能据此承诺任意图纸无损编辑。DXF 以查看及另存 DWG 为主。
+0.1.6 完善 MTEXT 分栏、外部参照、关联填充和中文编码互通，修复图层恢复与保存保护问题。特定旧版关联图纸仅开放经引用校验的独立基础图元编辑，关联对象及不支持的语义继续保护；不能据此承诺任意图纸无损编辑。DXF 以查看及另存 DWG 为主。
 
-Windows 仅提供 MSI，CLI 随安装版提供；macOS 安装、更新及 CLI 包保留。原生多重引线、动态块和完整外参管理仍有缺口，重要图纸请保留原件。
+Windows 仅提供 MSI，CLI 随安装版提供。下一版 macOS 将把 CLI 和共享字体放入应用包，停止独立 CLI ZIP；现有 0.1.6 的包结构以该版发行说明为准。原生多重引线、动态块和完整外参管理仍有缺口，重要图纸请保留原件。
 
 ## 常用能力
 
@@ -39,15 +39,14 @@ Windows 仅提供 MSI，CLI 随安装版提供；macOS 安装、更新及 CLI �
 | 布局与出图 | 模型/布局工作区，输出 PDF、SVG、PNG |
 | DWG 保存 | 合并实际编辑，保留未修改源数据，回读不一致时拒绝保存 |
 | 中文交互 | 中英界面切换，中文命令提示、错误和设置窗口 |
-| 命令行 | CLI 随 Windows MSI 提供，Mac 提供独立 CLI ZIP |
+| 命令行 | Windows MSI 随附 CLI；下一版 Mac 应用包也随附 CLI，并与桌面共用字体 |
 
 ## 选择你的版本
 
 | 平台 | 适用设备 | 安装或使用文件 | 更新记录 |
 | --- | --- | --- | --- |
-| Windows | x64，建议 Windows 11 | `lees-cad-0.1.5-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
-| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.5-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
-| Mac 命令行 | Apple Silicon | `lees-cad-cli-0.1.5-macos-aarch64.zip` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Windows | x64，建议 Windows 11 | `lees-cad-0.1.6-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.6-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
 
 本次发行只提供 Windows x64 与 Mac Apple Silicon。包声明的最低系统版本尚未完成逐版本实机验收；Intel Mac、Windows ARM64 等架构不在本次发行范围。
 
@@ -69,7 +68,14 @@ Mac 版采用 ad-hoc 签名，不使用 Developer ID 或 Apple 公证。`.app.ta
 
 ## 命令行也能处理图纸
 
-Windows CLI 随 MSI 安装版提供；Mac CLI 使用独立 ZIP。
+Windows CLI 随 MSI 提供；下一版 Mac CLI 将位于应用包内，可直接供 Agent 调用，无需注册 PATH：
+
+```sh
+"/Applications/Lee's CAD.app/Contents/MacOS/lees-cad-cli" --help
+"/Applications/Lee's CAD.app/Contents/MacOS/lees-cad-cli" mcp
+```
+
+后续 macOS 不再单独发行 CLI ZIP。请保留完整应用包中的共享字体目录。
 
 ```text
 lees-cad-cli --version

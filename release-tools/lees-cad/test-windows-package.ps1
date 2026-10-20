@@ -56,6 +56,12 @@ try {
     if ($signArguments.Count -ne 6 -or $signArguments[5] -ne $msi) {
         throw 'Only the MSI may be passed to updater signing'
     }
+    $staged = @(Get-ChildItem -LiteralPath (Join-Path $env:CARGO_TARGET_DIR 'windows-package') -Recurse -File -Filter fonts.wxs)
+    if ($staged.Count -ne 1) { throw 'One shared font component source is required' }
+    [xml]$fontXml = Get-Content -LiteralPath $staged[0].FullName -Raw
+    $manager = [Xml.XmlNamespaceManager]::new($fontXml.NameTable)
+    $manager.AddNamespace('w', 'http://wixtoolset.org/schemas/v4/wxs')
+    if ($fontXml.SelectNodes('//w:Component', $manager).Count -ne 80) { throw 'All 80 fonts must be packaged exactly once' }
     Write-Output 'Windows MSI-only package selection and signing arguments passed (synthetic fixtures)'
 } finally {
     foreach ($name in $variables) { [Environment]::SetEnvironmentVariable($name, $previous[$name]) }

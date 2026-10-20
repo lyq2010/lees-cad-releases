@@ -63,6 +63,7 @@ try {
   Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
   Step 'compiler budget regression' { & (Join-Path $PSScriptRoot 'test-build-settings.ps1') }
   Step 'MPL source archive regression' { python scripts/test-package-mpl-source.py }
+  Step 'shared CAD font packaging regression' { python scripts/test-package-fonts.py }
   if ($IsWindows) {
     Step 'Windows package selection regression' { & (Join-Path $PSScriptRoot 'test-windows-package.ps1') -Source $Source }
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
@@ -94,6 +95,11 @@ try {
       $exe = Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe'
       & (Join-Path $PSScriptRoot 'test-windows-association-guards.ps1') -Msi $packages[0].FullName -Exe $exe `
         -Fixtures (Join-Path $env:RUNNER_TEMP "association-guards-$([guid]::NewGuid().ToString('N'))")
+    }
+    Step 'Windows shared font MSI contract' {
+      $packages = @(Get-ChildItem -LiteralPath $env:DIST -Filter '*-windows-x64.msi' -File)
+      if ($packages.Count -ne 1) { throw 'Expected exactly one Windows MSI for font validation' }
+      & (Join-Path $PSScriptRoot 'test-windows-fonts.ps1') -Msi $packages[0].FullName -Source $Source
     }
     Step 'Windows native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/lees-cad.exe') --verify-update-artifact $env:DIST }
   } else {

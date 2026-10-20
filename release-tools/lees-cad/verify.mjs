@@ -2,6 +2,7 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {join, basename} from 'node:path';
 import {createHash, createPublicKey, verify} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {checkArtifactNames} from './artifact-contract.mjs';
 export const config = JSON.parse(readFileSync(new URL('./public-config.json', import.meta.url)));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 export function manifest(file) {
@@ -20,6 +21,7 @@ export function assets(root) {
   const files = new Map(), sums = [];
   for (const target of ['windows-x86_64','darwin-aarch64']) {
     const row = JSON.parse(readFileSync(join(root,`${target}.json`))), platform = p.platforms[target];
+    checkArtifactNames(target, p.version, row.files?.map(item => item.name));
     for (const field of ['bundleId','minOs','binarySha256','signerCertificateSha256','artifact']) {
       if (JSON.stringify(row[field]) !== JSON.stringify(platform[field])) throw new Error('Signed platform metadata differs');
     }
