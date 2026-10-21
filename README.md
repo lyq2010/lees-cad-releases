@@ -26,7 +26,7 @@
 - **打开与输出** — DXF/DWG 读取与写出基础，以及 PDF、SVG、PNG 输出；复杂外部图纸的完整保真仍在完善。
 - **按自己的方式操作** — 菜单、工具栏、命令行与 CLI；界面支持简体中文和英文。
 
-0.1.8 修复 Windows 从 PowerShell 7 启动时的更新校验，并加固正式包验包门禁。保留空闲、大图、多页 PDF、字体与截图的资源优化，以及菜单、外参管理、图层状态、锁定保护和跨图草稿修复。无文件启动直接进入首页，选项位于“文件”菜单。特定旧版关联图纸仅开放经引用校验的独立基础图元编辑，关联对象及不支持的语义继续保护；不能据此承诺任意图纸无损编辑。DXF 以查看及另存 DWG 为主。
+0.1.9 修复部分含标注关联记录的 DWG 无法打开的问题，降低复杂图纸内存占用，保留关联与回存数据、完整文字轮廓和缩放细节。保留 Windows 更新校验、菜单交互与运行资源优化。无文件启动直接进入首页，选项位于“文件”菜单。特定旧版关联图纸仅开放经引用校验的独立基础图元编辑，关联对象及不支持的语义继续保护；不能据此承诺任意图纸无损编辑。DXF 以查看及另存 DWG 为主。
 
 Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体放入应用包，不再新增独立 CLI ZIP；桌面与 CLI 共用全部 80 份随包字体。原生多重引线、动态块和高级外参管理仍有缺口，重要图纸请保留原件。
 
@@ -45,8 +45,8 @@ Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体�
 
 | 平台 | 适用设备 | 安装或使用文件 | 更新记录 |
 | --- | --- | --- | --- |
-| Windows | x64，建议 Windows 11 | `lees-cad-0.1.8-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
-| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.8-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Windows | x64，建议 Windows 11 | `lees-cad-0.1.9-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-0.1.9-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
 
 本次发行只提供 Windows x64 与 Mac Apple Silicon。包声明的最低系统版本尚未完成逐版本实机验收；Intel Mac、Windows ARM64 等架构不在本次发行范围。
 
