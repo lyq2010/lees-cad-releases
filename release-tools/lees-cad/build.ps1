@@ -115,5 +115,13 @@ try {
     Step 'macOS release compile' { bash packaging/macos/package.sh --arch aarch64 --build-only }
     Step 'macOS package and signing' { bash packaging/macos/package.sh --arch aarch64 --skip-build }
     Step 'macOS native artifact identity' { & (Join-Path $env:CARGO_TARGET_DIR 'aarch64-apple-darwin/release/lees-cad') --verify-update-artifact $env:DIST }
+    Step 'macOS native updater cleanup' {
+      $apps = @(Get-ChildItem -LiteralPath (Join-Path $env:CARGO_TARGET_DIR 'macos-package') -Directory |
+        Where-Object Name -Like 'aarch64-*' | ForEach-Object { Join-Path $_.FullName "Lee's CAD.app" } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Container })
+      if ($apps.Count -ne 1) { throw 'Expected exactly one signed application for updater cleanup acceptance' }
+      $env:LEES_CAD_MACOS_TEST_APP = $apps[0]
+      cargo +1.96.0 test --locked -p lees-cad updater::native_macos_tests::signed_bundle_identity_and_real_application_replacement -- --exact --ignored
+    }
   }
 } finally { Pop-Location }
