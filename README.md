@@ -26,7 +26,7 @@
 - **打开与输出** — DXF/DWG 读取与写出基础，以及 PDF、SVG、PNG 输出；复杂外部图纸的完整保真仍在完善。
 - **按自己的方式操作** — 菜单、工具栏、命令行与 CLI；界面支持简体中文和英文。
 
-1.0.3 完善两平台更新缓存自动清理：更新成功并通过健康校验后删除安装包和旧应用备份；失败或取消时清除残包，保留必要恢复资料，文件占用导致的清理中断在下次启动重试。保留 1.0.2 的关联标注删除保存、macOS 滚轮缩放修复，以及大图内存优化、文字与填充精度。此前已按 Windows 和 macOS 分别对齐常用 AutoCAD 快捷键与二维操作，完善面板切换、选择循环、Shift 临时正交与选择移除；CLI 支持命令别名、别名搜索及更明确的参数校验。无文件启动直接进入首页，选项位于“文件”菜单。特定旧版关联图纸仅开放经引用校验的独立基础图元编辑，关联对象及不支持的语义继续保护；不能据此承诺任意图纸无损编辑。DXF 以查看及另存 DWG 为主。
+1.0.4 恢复缩放时的填充细节，正确采用图纸自带图案；扩展部分自定义标注的只读显示，修复部分图纸另存失败和标注悬停卡住的问题。自定义标注仅兼容已支持的载荷或显示缓存，保留原生源数据，不保证所有私有版本或提供专有编辑。常用二维绘图、编辑、图层、文字、静态块、布局与出图已有实现，格式以可靠 DWG 保存为主；高级能力仍有兼容边界，DXF 主要用于查看和另存 DWG。
 
 Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体放入应用包，不再新增独立 CLI ZIP；桌面与 CLI 共用全部 80 份随包字体。原生多重引线、动态块和高级外参管理仍有缺口，重要图纸请保留原件。
 
@@ -45,8 +45,8 @@ Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体�
 
 | 平台 | 适用设备 | 安装或使用文件 | 更新记录 |
 | --- | --- | --- | --- |
-| Windows | x64，建议 Windows 11 | `lees-cad-1.0.3-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
-| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-1.0.3-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Windows | x64，建议 Windows 11 | `lees-cad-1.0.4-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-1.0.4-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
 
 本次发行只提供 Windows x64 与 Mac Apple Silicon。包声明的最低系统版本尚未完成逐版本实机验收；Intel Mac、Windows ARM64 等架构不在本次发行范围。
 
