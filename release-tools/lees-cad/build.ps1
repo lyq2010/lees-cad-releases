@@ -60,6 +60,7 @@ function Step([string]$Name, [scriptblock]$Work) {
 }
 Push-Location $Source
 try {
+  Step 'release notes and changelog policy' { node (Join-Path $PSScriptRoot 'notes-policy.mjs') (Join-Path $Source 'CHANGELOG.md') }
   Step 'build error regression' { & (Join-Path $PSScriptRoot 'test-build-errors.ps1') }
   Step 'compiler budget regression' { & (Join-Path $PSScriptRoot 'test-build-settings.ps1') }
   Step 'MPL source archive regression' { python scripts/test-package-mpl-source.py }
