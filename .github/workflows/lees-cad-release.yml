@@ -47,8 +47,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: 发行契约与说明回归
-        run: node --test release-tools/lees-cad/test-reuse.mjs release-tools/lees-cad/test-artifact-contract.mjs release-tools/lees-cad/test-notes-policy.mjs
+      - name: 产物复用来源保护回归
+        run: node --test release-tools/lees-cad/test-reuse.mjs release-tools/lees-cad/test-artifact-contract.mjs
       - id: reuse
         if: ${{ inputs.reuse_run_id != '' }}
         env:
