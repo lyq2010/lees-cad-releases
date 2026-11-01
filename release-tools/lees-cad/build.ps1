@@ -59,13 +59,19 @@ function Step([string]$Name, [scriptblock]$Work) {
     $codes = @($lines | ForEach-Object {
       if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
     } | Select-Object -Unique)
+    $formatFiles = @($lines | Where-Object { $_ -match '^\S.*\.rs$' } | ForEach-Object { $_ -replace '\\', '/' -replace '^.*private-source/', '' })
+    $errorHeaders = @($lines | Where-Object { $_ -match '^(?:error|fatal):' } | Select-Object -Last 3 | ForEach-Object {
+      # Redact quoted values, paths and URLs from Cargo environment diagnostics.
+      ($_ -replace '[`"''][^`"'']*[`"'']', '<redacted>' -replace 'https?://\S+|[A-Za-z]:[\\/]\S+', '<path>')
+    })
     @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes; nativeExitCode=$LASTEXITCODE; exceptionType=$exceptionType;
       formatDiffs=@($lines -match '^Diff in ').Count;
       metadataFailure=[bool]($lines -match 'cargo metadata exited with an error');
       missingFormatCommand=[bool]($lines -match 'no such command:.*fmt');
       manifestMissing=[bool]($lines -match 'could not find.*Cargo.toml|manifest.*does not exist');
       pathMissing=[bool]($lines -match 'cannot find|not recognized|No such file|could not execute|not found');
-      argumentError=[bool]($lines -match 'unexpected argument|unrecognized option|Unknown option')} | ConvertTo-Json -Compress | Write-Output
+      argumentError=[bool]($lines -match 'unexpected argument|unrecognized option|Unknown option');
+      formatFiles=$formatFiles; errorHeaders=$errorHeaders} | ConvertTo-Json -Compress | Write-Output
     throw "$Name failed; code and private build log remain only on this runner"
   }
 }
@@ -99,7 +105,7 @@ try {
     sourceManifestPresent=(Test-Path -LiteralPath (Join-Path (Get-Location).Path 'Cargo.toml'));
     formatCommandVisible=($null -ne (Get-Command cargo-fmt -ErrorAction SilentlyContinue))} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
-  Step 'quality format' { cargo fmt --all -- --check }
+  Step 'quality format' { rustup run $toolchain cargo fmt --all -- --check --files-with-diff }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
   Step 'workspace tests' { cargo test --workspace --locked --all-targets }
   Step 'asset attribution' { cargo xtask assets }

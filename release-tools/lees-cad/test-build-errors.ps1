@@ -37,6 +37,7 @@ Check-Failure {
 Check-Failure {
     Write-Output "$([char]27)[31mDiff in D:\a\release\private-source\crates\doc\src\entity.rs:91:$([char]27)[0m"
     Write-Output 'PRIVATE_SOURCE_MARKER'
+    Write-Output 'error: `PRIVATE_SOURCE_MARKER` could not initialize'
     & pwsh -NoProfile -NonInteractive -Command 'exit 1'
 } '' 'crates/doc/src/entity.rs:91:1'
 $global:LASTEXITCODE = 0
