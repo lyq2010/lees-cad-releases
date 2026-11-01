@@ -242,7 +242,7 @@ jobs:
           retention-days: 7
 
   mirror-cos:
-    if: ${{ inputs.publish }}
+    if: ${{ !cancelled() && inputs.publish && needs.verify-artifacts.result == 'success' }}
     needs: verify-artifacts
     runs-on: ubuntu-latest
     env:
@@ -267,7 +267,7 @@ jobs:
           path: public-assets/readiness-cos.json
 
   mirror-r2:
-    if: ${{ inputs.publish }}
+    if: ${{ !cancelled() && inputs.publish && needs.verify-artifacts.result == 'success' }}
     needs: verify-artifacts
     runs-on: ubuntu-latest
     env:
@@ -290,7 +290,7 @@ jobs:
           path: public-assets/readiness-r2.json
 
   promote:
-    if: ${{ inputs.publish }}
+    if: ${{ !cancelled() && inputs.publish && needs.mirror-cos.result == 'success' && needs.mirror-r2.result == 'success' }}
     needs: [mirror-cos, mirror-r2]
     runs-on: ubuntu-latest
     permissions:
@@ -327,7 +327,7 @@ jobs:
         run: node release-tools/lees-cad/publish.mjs public-assets
 
   cleanup-cos:
-    if: ${{ inputs.publish }}
+    if: ${{ !cancelled() && inputs.publish && needs.promote.result == 'success' }}
     needs: promote
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -357,7 +357,7 @@ jobs:
           retention-days: 7
 
   cleanup-r2:
-    if: ${{ inputs.publish }}
+    if: ${{ !cancelled() && inputs.publish && needs.promote.result == 'success' }}
     needs: promote
     runs-on: ubuntu-latest
     timeout-minutes: 15
