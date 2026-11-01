@@ -11,6 +11,11 @@ on:
         description: 经明确授权后上传 COS/R2 并发布；CI 验证保持 false
         type: boolean
         default: false
+      validation:
+        description: 按变更范围验证：常规只构建验包；界面或核心变更按需选择回归
+        type: choice
+        options: ['build', 'ui', 'full']
+        default: 'build'
       windows_jobs:
         description: Windows 编译并行数；授权运行时可对比 2/4，macOS 保持 2
         type: choice
@@ -25,6 +30,7 @@ permissions:
   contents: read
 env:
   RUSTUP_TOOLCHAIN: '1.98.1'
+  LEESCAD_VALIDATION: ${{ inputs.validation }}
 concurrency:
   group: lees-cad-release
   cancel-in-progress: false

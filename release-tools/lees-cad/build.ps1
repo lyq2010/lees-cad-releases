@@ -8,9 +8,11 @@ if ((git -C $Source rev-parse HEAD) -ne $Revision) { throw 'Private checkout SHA
 $env:LEES_CAD_BUILD_SHA = $Revision
 $toolchain = $env:RUSTUP_TOOLCHAIN
 if ($toolchain -notmatch '^\d+\.\d+\.\d+$') { throw 'The workflow must supply a fixed RUSTUP_TOOLCHAIN version' }
+$validation = $env:LEESCAD_VALIDATION
+if ($validation -notin @('build', 'ui', 'full')) { throw 'The workflow must select build, ui or full validation' }
 . (Join-Path $PSScriptRoot 'build-settings.ps1')
 $env:CARGO_BUILD_JOBS = [string](Get-BuildJobs -WindowsHost $IsWindows -WindowsJobs $WindowsJobs)
-@{phase='build configuration'; logicalCpus=[Environment]::ProcessorCount; compilerJobs=[int]$env:CARGO_BUILD_JOBS} | ConvertTo-Json -Compress | Write-Output
+@{phase='build configuration'; validation=$validation; logicalCpus=[Environment]::ProcessorCount; compilerJobs=[int]$env:CARGO_BUILD_JOBS} | ConvertTo-Json -Compress | Write-Output
 $env:CARGO_PROFILE_DEV_DEBUG = '0'
 $env:LEES_CAD_BUILD_DATE = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'cad-build'
@@ -95,10 +97,14 @@ try {
     throw 'Fixed Rust toolchain identity could not be verified'
   }
   @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
-  # Same gates as xtask ci, separately timed without exposing their output.
+  # Cheap checks always run; regression scope is selected explicitly for this change.
   Step 'quality format' { cargo xtask fmt-check }
-  Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
-  Step 'workspace tests' { cargo test --workspace --locked --all-targets }
+  if ($validation -eq 'full') {
+    Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
+    Step 'workspace tests' { cargo test --workspace --locked --all-targets }
+  } elseif ($validation -eq 'ui') {
+    Step 'UI tests' { cargo test --locked -p lees-cad-ui-egui --all-targets }
+  }
   Step 'asset attribution' { cargo xtask assets }
   Step 'dependency layers' { cargo xtask layers }
   Step 'product identity' { python scripts/check-identity.py }
