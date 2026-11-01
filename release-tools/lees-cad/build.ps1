@@ -30,12 +30,14 @@ function Step([string]$Name, [scriptblock]$Work) {
   Write-Output "==> $Name"
   $timer = [Diagnostics.Stopwatch]::StartNew()
   $failed = $false
+  $exceptionType = $null
   try {
     & $Work >> $log 2>&1
     $failed = $LASTEXITCODE -ne 0
   } catch {
     # Terminating PowerShell errors must not escape with private source excerpts.
     $_ | Out-String | Add-Content -LiteralPath $log
+    $exceptionType = $_.Exception.GetType().FullName
     $failed = $true
   }
   $timer.Stop()
@@ -43,7 +45,7 @@ function Step([string]$Name, [scriptblock]$Work) {
     result=$(if ($failed) { 'failed' } else { 'passed' })} | ConvertTo-Json -Compress | Write-Output
   if ($failed) {
     # Only identifiers/locations leave the runner. Never print code, assertions or raw logs.
-    $lines = Get-Content -LiteralPath $log
+    $lines = @(Get-Content -LiteralPath $log | ForEach-Object { ($_ -replace '\x1b\[[0-?]*[ -/]*[@-~]', '').TrimStart() })
     $tests = @($lines | ForEach-Object { if ($_ -match '^test (.+) \.\.\. FAILED$') { $Matches[1] } })
     $locations = @($lines | ForEach-Object {
       if ($_ -match 'panicked at (.*\.rs):([0-9]+):([0-9]+)' -or $_ -match '^\s*-->\s*(.*\.rs):([0-9]+):([0-9]+)' -or
@@ -57,10 +59,13 @@ function Step([string]$Name, [scriptblock]$Work) {
     $codes = @($lines | ForEach-Object {
       if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
     } | Select-Object -Unique)
-    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes; nativeExitCode=$LASTEXITCODE;
+    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes; nativeExitCode=$LASTEXITCODE; exceptionType=$exceptionType;
       formatDiffs=@($lines -match '^Diff in ').Count;
       metadataFailure=[bool]($lines -match 'cargo metadata exited with an error');
-      missingFormatCommand=[bool]($lines -match '^error: no such command:.*fmt')} | ConvertTo-Json -Compress | Write-Output
+      missingFormatCommand=[bool]($lines -match 'no such command:.*fmt');
+      manifestMissing=[bool]($lines -match 'could not find.*Cargo.toml|manifest.*does not exist');
+      pathMissing=[bool]($lines -match 'cannot find|not recognized|No such file|could not execute|not found');
+      argumentError=[bool]($lines -match 'unexpected argument|unrecognized option|Unknown option')} | ConvertTo-Json -Compress | Write-Output
     throw "$Name failed; code and private build log remain only on this runner"
   }
 }
@@ -89,7 +94,10 @@ try {
   if ($LASTEXITCODE -ne 0 -or $cargoVersion -notmatch '^cargo [0-9]' -or $compilerVersion -notmatch '^rustc [0-9]' -or $formatterVersion -notmatch '^rustfmt [0-9]') {
     throw 'Fixed Rust toolchain identity could not be verified'
   }
-  @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
+  @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion;
+    sourceDirectoryMatches=((Get-Location).Path -eq $Source);
+    sourceManifestPresent=(Test-Path -LiteralPath (Join-Path (Get-Location).Path 'Cargo.toml'));
+    formatCommandVisible=($null -ne (Get-Command cargo-fmt -ErrorAction SilentlyContinue))} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
   Step 'quality format' { cargo fmt --all -- --check }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
