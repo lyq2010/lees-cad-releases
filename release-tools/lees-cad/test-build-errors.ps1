@@ -10,7 +10,7 @@ if (-not $step) { throw 'Step wrapper missing' }
 $root = Join-Path ([IO.Path]::GetTempPath()) "lees-cad-error-test-$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $root | Out-Null
 $log = Join-Path $root 'private-build.log'
-function Check-Failure([scriptblock]$Work, [string]$Code) {
+function Check-Failure([scriptblock]$Work, [string]$Code, [string]$Location) {
     $output = [Collections.Generic.List[string]]::new()
     $global:LASTEXITCODE = 0
     try {
@@ -25,6 +25,7 @@ function Check-Failure([scriptblock]$Work, [string]$Code) {
     $summary = $records | Where-Object { $_.PSObject.Properties.Name -contains 'compilerCodes' }
     if ($summary.phase -ne 'synthetic failure') { throw 'Failure phase missing' }
     if ($Code -and $Code -notin $summary.compilerCodes) { throw 'Diagnostic code missing' }
+    if ($Location -and $Location -notin $summary.locations) { throw 'Diagnostic location missing' }
     $timing = $records | Where-Object { $_.PSObject.Properties.Name -contains 'elapsedSeconds' }
     if ($timing.result -ne 'failed' -or $timing.elapsedSeconds -lt 0) { throw 'Failure timing missing' }
 }
@@ -33,6 +34,11 @@ Check-Failure {
     Write-Output 'template.wxs(82) : error WIX0367: PRIVATE_SOURCE_MARKER'
     & pwsh -NoProfile -NonInteractive -Command 'exit 7'
 } 'WIX0367'
+Check-Failure {
+    Write-Output 'Diff in D:\a\release\private-source\crates\doc\src\entity.rs:91:'
+    Write-Output 'PRIVATE_SOURCE_MARKER'
+    & pwsh -NoProfile -NonInteractive -Command 'exit 1'
+} '' 'crates/doc/src/entity.rs:91:1'
 $global:LASTEXITCODE = 0
 $success = @(Step 'synthetic success' { Write-Output 'PRIVATE_SOURCE_MARKER' })
 if (($success -join '').Contains('PRIVATE_SOURCE_MARKER')) { throw 'Success details escaped' }

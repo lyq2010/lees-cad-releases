@@ -46,16 +46,20 @@ function Step([string]$Name, [scriptblock]$Work) {
     $lines = Get-Content -LiteralPath $log
     $tests = @($lines | ForEach-Object { if ($_ -match '^test (.+) \.\.\. FAILED$') { $Matches[1] } })
     $locations = @($lines | ForEach-Object {
-      if ($_ -match 'panicked at (.*\.rs):([0-9]+):([0-9]+)' -or $_ -match '^\s*-->\s*(.*\.rs):([0-9]+):([0-9]+)') {
+      if ($_ -match 'panicked at (.*\.rs):([0-9]+):([0-9]+)' -or $_ -match '^\s*-->\s*(.*\.rs):([0-9]+):([0-9]+)' -or
+          $_ -match '^Diff in (.*\.rs):([0-9]+):') {
         $path = $Matches[1] -replace '\\', '/'
         $path = $path -replace '^.*private-source/', ''
-        "$path`:$($Matches[2])`:$($Matches[3])"
+        $column = if ($Matches.ContainsKey(3)) { $Matches[3] } else { 1 }
+        "$path`:$($Matches[2])`:$column"
       }
     })
     $codes = @($lines | ForEach-Object {
       if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
     } | Select-Object -Unique)
-    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes} | ConvertTo-Json -Compress | Write-Output
+    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes;
+      formatDiffs=@($lines -match '^Diff in ').Count;
+      metadataFailure=[bool]($lines -match 'cargo metadata exited with an error')} | ConvertTo-Json -Compress | Write-Output
     throw "$Name failed; code and private build log remain only on this runner"
   }
 }
@@ -71,6 +75,12 @@ try {
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
   }
   Step "install Rust $toolchain" { rustup toolchain install $toolchain --profile minimal --component rustfmt --component clippy }
+  $compilerVersion = & rustup run $toolchain rustc --version
+  $formatterVersion = & rustup run $toolchain rustfmt --version
+  if ($LASTEXITCODE -ne 0 -or $compilerVersion -notmatch '^rustc [0-9]' -or $formatterVersion -notmatch '^rustfmt [0-9]') {
+    throw 'Fixed Rust toolchain identity could not be verified'
+  }
+  @{phase='toolchain identity'; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
   Step 'quality format' { cargo fmt --all -- --check }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
