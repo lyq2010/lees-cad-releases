@@ -49,10 +49,11 @@ jobs:
             $text=[IO.File]::ReadAllText($Path)
             if($text.Contains([char]0)){$text=[Text.Encoding]::Unicode.GetString([IO.File]::ReadAllBytes($Path))}
             $lines=@($text -split '\r?\n'|ForEach-Object{($_ -replace '\x1b\[[0-?]*[ -/]*[@-~]','').Trim()})
-            $headers=@($lines|Where-Object{$_ -match '(?:error|fatal|warning|usage|help|note):|panicked|cannot|could not|failed to'}|Select-Object -First 8|ForEach-Object{
+            $firstLine=if($text.Contains('Usage: cargo fmt')){($lines|Where-Object{$_}|Select-Object -First 1) -replace '[`"''][^`"'']*[`"'']','<redacted>'}else{'<not CLI usage>'}
+            $headers=@($lines|Where-Object{$_ -match '(?:error|fatal|warning|usage|help|note):|panicked|cannot|could not|failed to|option|argument|No such file'}|Select-Object -First 8|ForEach-Object{
               ($_ -replace '[`"''][^`"'']*[`"'']','<redacted>' -replace 'https?://\S+|[A-Za-z]:[\\/]\S+','<path>')
             })
-            @{phase=$Name;exitCode=$Code;bytes=(Get-Item $Path).Length;lines=$lines.Count;diagnosticHeaders=$headers}|ConvertTo-Json -Depth 5 -Compress|Write-Output
+            @{phase=$Name;exitCode=$Code;bytes=(Get-Item $Path).Length;lines=$lines.Count;diagnosticHeaders=$headers;firstLine=$firstLine}|ConvertTo-Json -Depth 5 -Compress|Write-Output
           }
           $first=Join-Path $env:RUNNER_TEMP 'private-format.log'
           if(Test-Path $first){Report 'format from build wrapper' $first 1}
@@ -76,5 +77,28 @@ jobs:
             $PSNativeCommandArgumentPassing='Legacy'
             rustup run 1.98.1 cargo fmt --all -- --check --files-with-diff *> $path
             Report 'Legacy argument mode' $path $global:LASTEXITCODE
+            $path=Join-Path $env:RUNNER_TEMP 'format-array.log'
+            $formatArgs=@('run','1.98.1','cargo','fmt','--all','--','--check')
+            & rustup @formatArgs *> $path
+            Report 'explicit argument array' $path $global:LASTEXITCODE
+            $path=Join-Path $env:RUNNER_TEMP 'format-native-check.log'
+            & rustup @('run','1.98.1','cargo','fmt','--all','--check') *> $path
+            Report 'native cargo check option' $path $global:LASTEXITCODE
+            $cargoPath=& rustup which --toolchain 1.98.1 cargo
+            $path=Join-Path $env:RUNNER_TEMP 'format-process-args.log'
+            $start=[Diagnostics.ProcessStartInfo]::new($cargoPath)
+            $start.UseShellExecute=$false
+            $start.CreateNoWindow=$true
+            $start.RedirectStandardOutput=$true
+            $start.RedirectStandardError=$true
+            $start.WorkingDirectory=(Get-Location).Path
+            foreach($part in @('fmt','--all','--check')){$start.ArgumentList.Add($part)}
+            $process=[Diagnostics.Process]::Start($start)
+            $stdout=$process.StandardOutput.ReadToEndAsync()
+            $stderr=$process.StandardError.ReadToEndAsync()
+            $process.WaitForExit()
+            [IO.File]::WriteAllText($path,$stdout.Result+$stderr.Result)
+            Report 'ProcessStartInfo argument list' $path $process.ExitCode
+            $process.Dispose()
           }finally{Pop-Location}
           exit 0
