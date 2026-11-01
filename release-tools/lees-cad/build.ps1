@@ -57,9 +57,10 @@ function Step([string]$Name, [scriptblock]$Work) {
     $codes = @($lines | ForEach-Object {
       if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
     } | Select-Object -Unique)
-    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes;
+    @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes; nativeExitCode=$LASTEXITCODE;
       formatDiffs=@($lines -match '^Diff in ').Count;
-      metadataFailure=[bool]($lines -match 'cargo metadata exited with an error')} | ConvertTo-Json -Compress | Write-Output
+      metadataFailure=[bool]($lines -match 'cargo metadata exited with an error');
+      missingFormatCommand=[bool]($lines -match '^error: no such command:.*fmt')} | ConvertTo-Json -Compress | Write-Output
     throw "$Name failed; code and private build log remain only on this runner"
   }
 }
@@ -75,12 +76,20 @@ try {
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
   }
   Step "install Rust $toolchain" { rustup toolchain install $toolchain --profile minimal --component rustfmt --component clippy }
+  # CARGO_HOME is isolated from the image's proxy directory. Select the installed
+  # bin directory explicitly so Cargo can also find cargo-fmt and cargo-clippy.
+  $cargoPath = & rustup which --toolchain $toolchain cargo
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $cargoPath -PathType Leaf)) {
+    throw 'Fixed Cargo executable could not be located'
+  }
+  $env:PATH = (Split-Path -Parent $cargoPath) + [IO.Path]::PathSeparator + $env:PATH
+  $cargoVersion = & cargo --version
   $compilerVersion = & rustup run $toolchain rustc --version
   $formatterVersion = & rustup run $toolchain rustfmt --version
-  if ($LASTEXITCODE -ne 0 -or $compilerVersion -notmatch '^rustc [0-9]' -or $formatterVersion -notmatch '^rustfmt [0-9]') {
+  if ($LASTEXITCODE -ne 0 -or $cargoVersion -notmatch '^cargo [0-9]' -or $compilerVersion -notmatch '^rustc [0-9]' -or $formatterVersion -notmatch '^rustfmt [0-9]') {
     throw 'Fixed Rust toolchain identity could not be verified'
   }
-  @{phase='toolchain identity'; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
+  @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
   Step 'quality format' { cargo fmt --all -- --check }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
