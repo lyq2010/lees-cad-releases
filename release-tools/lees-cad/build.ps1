@@ -98,7 +98,22 @@ try {
     sourceManifestPresent=(Test-Path -LiteralPath (Join-Path (Get-Location).Path 'Cargo.toml'));
     formatCommandVisible=($null -ne (Get-Command cargo-fmt -ErrorAction SilentlyContinue))} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
-  Step 'quality format' { rustup run $toolchain cargo fmt --all -- --check --files-with-diff }
+  Step 'quality format' {
+    $formatLog = Join-Path $env:RUNNER_TEMP 'private-format.log'
+    $command = Get-Command cargo
+    @{phase='format invocation'; toolchain=$toolchain; environmentToolchain=$env:RUSTUP_TOOLCHAIN;
+      commandType=$command.CommandType.ToString(); manifestPresent=(Test-Path -LiteralPath 'Cargo.toml')} | ConvertTo-Json -Compress | Write-Host
+    rustup run $env:RUSTUP_TOOLCHAIN cargo fmt --all -- --check --files-with-diff *> $formatLog
+    $formatExit = $global:LASTEXITCODE
+    if ($formatExit -ne 0) {
+      $headers = @(Get-Content -LiteralPath $formatLog | ForEach-Object { ($_ -replace '\x1b\[[0-?]*[ -/]*[@-~]', '').TrimStart() } |
+        Where-Object { $_ -match '^(?:error|fatal):|^\S.*\.rs$' } | Select-Object -First 3 | ForEach-Object {
+          $_ -replace '[`"''][^`"'']*[`"'']', '<redacted>' -replace 'https?://\S+|[A-Za-z]:[\\/]\S+', '<path>'
+        })
+      @{phase='format command result'; exitCode=$formatExit; outputBytes=(Get-Item -LiteralPath $formatLog).Length; headers=$headers} | ConvertTo-Json -Compress | Write-Host
+    }
+    $global:LASTEXITCODE = $formatExit
+  }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
   Step 'workspace tests' { cargo test --workspace --locked --all-targets }
   Step 'asset attribution' { cargo xtask assets }
