@@ -61,6 +61,7 @@ function Step([string]$Name, [scriptblock]$Work) {
     })
     $codes = @($lines | ForEach-Object {
       if ($_ -match '^error\[([A-Z0-9]+)\]' -or $_ -match '\berror (WIX[0-9]{4})\b') { $Matches[1] }
+      elseif ($_ -match '\(os error ([0-9]+)\)') { "OS$($Matches[1])" }
     } | Select-Object -Unique)
     $formatFiles = @($lines | Where-Object { $_ -match '^\S.*\.rs$' } | ForEach-Object { $_ -replace '\\', '/' -replace '^.*private-source/', '' })
     @{phase=$Name; failedTests=$tests; locations=$locations; compilerCodes=$codes;
@@ -93,27 +94,9 @@ try {
   if ($global:LASTEXITCODE -ne 0 -or $cargoVersion -notmatch '^cargo [0-9]' -or $compilerVersion -notmatch '^rustc [0-9]' -or $formatterVersion -notmatch '^rustfmt [0-9]') {
     throw 'Fixed Rust toolchain identity could not be verified'
   }
-  @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion;
-    sourceDirectoryMatches=((Get-Location).Path -eq $Source);
-    sourceManifestPresent=(Test-Path -LiteralPath (Join-Path (Get-Location).Path 'Cargo.toml'));
-    formatCommandVisible=($null -ne (Get-Command cargo-fmt -ErrorAction SilentlyContinue))} | ConvertTo-Json -Compress | Write-Output
+  @{phase='toolchain identity'; cargo=$cargoVersion; compiler=$compilerVersion; formatter=$formatterVersion} | ConvertTo-Json -Compress | Write-Output
   # Same gates as xtask ci, separately timed without exposing their output.
-  Step 'quality format' {
-    $formatLog = Join-Path $env:RUNNER_TEMP 'private-format.log'
-    $command = Get-Command cargo
-    @{phase='format invocation'; toolchain=$toolchain; environmentToolchain=$env:RUSTUP_TOOLCHAIN;
-      commandType=$command.CommandType.ToString(); manifestPresent=(Test-Path -LiteralPath 'Cargo.toml')} | ConvertTo-Json -Compress | Write-Host
-    rustup run $env:RUSTUP_TOOLCHAIN cargo fmt --all -- --check --files-with-diff *> $formatLog
-    $formatExit = $global:LASTEXITCODE
-    if ($formatExit -ne 0) {
-      $headers = @(Get-Content -LiteralPath $formatLog | ForEach-Object { ($_ -replace '\x1b\[[0-?]*[ -/]*[@-~]', '').TrimStart() } |
-        Where-Object { $_ -match '^(?:error|fatal):|^\S.*\.rs$' } | Select-Object -First 3 | ForEach-Object {
-          $_ -replace '[`"''][^`"'']*[`"'']', '<redacted>' -replace 'https?://\S+|[A-Za-z]:[\\/]\S+', '<path>'
-        })
-      @{phase='format command result'; exitCode=$formatExit; outputBytes=(Get-Item -LiteralPath $formatLog).Length; headers=$headers} | ConvertTo-Json -Compress | Write-Host
-    }
-    $global:LASTEXITCODE = $formatExit
-  }
+  Step 'quality format' { cargo xtask fmt-check }
   Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
   Step 'workspace tests' { cargo test --workspace --locked --all-targets }
   Step 'asset attribution' { cargo xtask assets }

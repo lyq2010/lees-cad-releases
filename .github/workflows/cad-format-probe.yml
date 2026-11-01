@@ -42,7 +42,8 @@ jobs:
           if($index -lt 0){throw 'Expected build-stage boundary is missing'}
           $probe=Join-Path (Split-Path $script) 'temporary-format-probe.ps1'
           [IO.File]::WriteAllText($probe,$text.Substring(0,$index)+"`n} finally { Pop-Location }`nexit 0`n")
-          try{& $probe -Source (Join-Path $env:GITHUB_WORKSPACE 'private-source') -Revision $env:SOURCE_SHA -WindowsJobs 2}catch{
+          $probePassed=$false
+          try{& $probe -Source (Join-Path $env:GITHUB_WORKSPACE 'private-source') -Revision $env:SOURCE_SHA -WindowsJobs 2;$probePassed=($global:LASTEXITCODE -eq 0)}catch{
             @{phase='probe wrapper';exceptionType=$_.Exception.GetType().FullName}|ConvertTo-Json -Compress|Write-Output
           }
           function Report([string]$Name,[string]$Path,[int]$Code){
@@ -55,6 +56,8 @@ jobs:
             })
             @{phase=$Name;exitCode=$Code;bytes=(Get-Item $Path).Length;lines=$lines.Count;diagnosticHeaders=$headers;firstLine=$firstLine}|ConvertTo-Json -Depth 5 -Compress|Write-Output
           }
+          if(-not $probePassed){throw 'Per-package format gate failed in the actual runner environment'}
+          @{phase='production package format gate';result='passed'}|ConvertTo-Json -Compress|Write-Output
           $first=Join-Path $env:RUNNER_TEMP 'private-format.log'
           if(Test-Path $first){Report 'format from build wrapper' $first 1}
           Push-Location (Join-Path $env:GITHUB_WORKSPACE 'private-source')

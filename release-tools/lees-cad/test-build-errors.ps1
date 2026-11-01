@@ -36,6 +36,11 @@ Check-Failure {
     & pwsh -NoProfile -NonInteractive -Command 'exit 7'
 } 'WIX0367'
 Check-Failure {
+    Write-Output 'The filename or extension is too long. (os error 206)'
+    Write-Output 'PRIVATE_SOURCE_MARKER'
+    & pwsh -NoProfile -NonInteractive -Command 'exit 1'
+} 'OS206' '' 1
+Check-Failure {
     Write-Output "$([char]27)[31mDiff in D:\a\release\private-source\crates\doc\src\entity.rs:91:$([char]27)[0m"
     Write-Output 'PRIVATE_SOURCE_MARKER'
     & pwsh -NoProfile -NonInteractive -Command 'exit 1'
