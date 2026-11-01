@@ -23,6 +23,8 @@ on:
 
 permissions:
   contents: read
+env:
+  RUSTUP_TOOLCHAIN: '1.98.1'
 concurrency:
   group: lees-cad-release
   cancel-in-progress: false

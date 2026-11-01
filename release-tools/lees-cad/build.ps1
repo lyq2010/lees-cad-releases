@@ -6,7 +6,8 @@ if ($Revision -notmatch '^[a-f0-9]{40}$') { throw 'A fixed source SHA is require
 $Source = (Resolve-Path -LiteralPath $Source).Path
 if ((git -C $Source rev-parse HEAD) -ne $Revision) { throw 'Private checkout SHA differs' }
 $env:LEES_CAD_BUILD_SHA = $Revision
-$env:RUSTUP_TOOLCHAIN = '1.96.0'
+$toolchain = $env:RUSTUP_TOOLCHAIN
+if ($toolchain -notmatch '^\d+\.\d+\.\d+$') { throw 'The workflow must supply a fixed RUSTUP_TOOLCHAIN version' }
 . (Join-Path $PSScriptRoot 'build-settings.ps1')
 $env:CARGO_BUILD_JOBS = [string](Get-BuildJobs -WindowsHost $IsWindows -WindowsJobs $WindowsJobs)
 @{phase='build configuration'; logicalCpus=[Environment]::ProcessorCount; compilerJobs=[int]$env:CARGO_BUILD_JOBS} | ConvertTo-Json -Compress | Write-Output
@@ -69,13 +70,13 @@ try {
     Step 'certificate setup regression' { & (Join-Path $PSScriptRoot 'test-windows-certificate.ps1') }
     Step 'self-signed runner certificate' { & (Join-Path $PSScriptRoot 'windows-certificate.ps1') }
   }
-  Step 'install Rust 1.96.0' { rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy }
+  Step "install Rust $toolchain" { rustup toolchain install $toolchain --profile minimal --component rustfmt --component clippy }
   # Same gates as xtask ci, separately timed without exposing their output.
-  Step 'quality format' { cargo +1.96.0 fmt --all -- --check }
-  Step 'clippy' { cargo +1.96.0 clippy --workspace --locked --all-targets -- -D warnings }
-  Step 'workspace tests' { cargo +1.96.0 test --workspace --locked --all-targets }
-  Step 'asset attribution' { cargo +1.96.0 xtask assets }
-  Step 'dependency layers' { cargo +1.96.0 xtask layers }
+  Step 'quality format' { cargo fmt --all -- --check }
+  Step 'clippy' { cargo clippy --workspace --locked --all-targets -- -D warnings }
+  Step 'workspace tests' { cargo test --workspace --locked --all-targets }
+  Step 'asset attribution' { cargo xtask assets }
+  Step 'dependency layers' { cargo xtask layers }
   Step 'product identity' { python scripts/check-identity.py }
   Step 'Chinese message coverage' { python scripts/check-translations.py }
   Step 'identity scanner regression' { python scripts/test-check-identity.py }
@@ -121,7 +122,7 @@ try {
         Where-Object { Test-Path -LiteralPath $_ -PathType Container })
       if ($apps.Count -ne 1) { throw 'Expected exactly one signed application for updater cleanup acceptance' }
       $env:LEES_CAD_MACOS_TEST_APP = $apps[0]
-      cargo +1.96.0 test --locked -p lees-cad updater::native_macos_tests::signed_bundle_identity_and_real_application_replacement -- --exact --ignored
+      cargo test --locked -p lees-cad updater::native_macos_tests::signed_bundle_identity_and_real_application_replacement -- --exact --ignored
     }
   }
 } finally { Pop-Location }
