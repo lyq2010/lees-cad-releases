@@ -1,0 +1,80 @@
+name: CAD Windows format probe
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: '1.98.1'
+      LEESCAD_WINDOWS_PFX_BASE64: ${{ secrets.LEESCAD_WINDOWS_PFX_BASE64 }}
+      LEESCAD_WINDOWS_PFX_PASSWORD: ${{ secrets.LEESCAD_WINDOWS_PFX_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: release-repo
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: lyq2010/lees-cad
+          ref: ${{ inputs.source_sha }}
+          ssh-key: ${{ secrets.LEESCAD_SOURCE_SSH_KEY }}
+          path: private-source
+          persist-credentials: false
+          show-progress: false
+      - name: Isolated Windows format diagnosis without private source output
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          $ErrorActionPreference='Stop'
+          git -C private-source remote set-url origin https://github.com/lyq2010/lees-cad.git
+          $script=Join-Path $env:GITHUB_WORKSPACE 'release-repo/release-tools/lees-cad/build.ps1'
+          $text=[IO.File]::ReadAllText($script)
+          $marker="  Step 'clippy'"
+          $index=$text.IndexOf($marker,[StringComparison]::Ordinal)
+          if($index -lt 0){throw 'Expected build-stage boundary is missing'}
+          $probe=Join-Path (Split-Path $script) 'temporary-format-probe.ps1'
+          [IO.File]::WriteAllText($probe,$text.Substring(0,$index)+"`n} finally { Pop-Location }`nexit 0`n")
+          try{& $probe -Source (Join-Path $env:GITHUB_WORKSPACE 'private-source') -Revision $env:SOURCE_SHA -WindowsJobs 2}catch{
+            @{phase='probe wrapper';exceptionType=$_.Exception.GetType().FullName}|ConvertTo-Json -Compress|Write-Output
+          }
+          function Report([string]$Name,[string]$Path,[int]$Code){
+            $text=[IO.File]::ReadAllText($Path)
+            if($text.Contains([char]0)){$text=[Text.Encoding]::Unicode.GetString([IO.File]::ReadAllBytes($Path))}
+            $lines=@($text -split '\r?\n'|ForEach-Object{($_ -replace '\x1b\[[0-?]*[ -/]*[@-~]','').Trim()})
+            $headers=@($lines|Where-Object{$_ -match '(?:error|fatal|warning|usage|help|note):|panicked|cannot|could not|failed to'}|Select-Object -First 8|ForEach-Object{
+              ($_ -replace '[`"''][^`"'']*[`"'']','<redacted>' -replace 'https?://\S+|[A-Za-z]:[\\/]\S+','<path>')
+            })
+            @{phase=$Name;exitCode=$Code;bytes=(Get-Item $Path).Length;lines=$lines.Count;diagnosticHeaders=$headers}|ConvertTo-Json -Depth 5 -Compress|Write-Output
+          }
+          $first=Join-Path $env:RUNNER_TEMP 'private-format.log'
+          if(Test-Path $first){Report 'format from build wrapper' $first 1}
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE 'private-source')
+          try{
+            @{phase='environment';powershell=$PSVersionTable.PSVersion.ToString();argumentPassing=$PSNativeCommandArgumentPassing;
+              cargoOverridePresent=[bool]$env:CARGO;formatterOverridePresent=[bool]$env:RUSTFMT}|ConvertTo-Json -Compress|Write-Output
+            $path=Join-Path $env:RUNNER_TEMP 'direct-format.log'
+            rustup run 1.98.1 cargo fmt --all -- --check --files-with-diff *> $path
+            $code=$global:LASTEXITCODE
+            Report 'direct format' $path $code
+            $path=Join-Path $env:RUNNER_TEMP 'direct-metadata.log'
+            cargo metadata --no-deps --format-version=1 *> $path
+            $code=$global:LASTEXITCODE
+            if($code -eq 0){@{phase='direct metadata';result='passed'}|ConvertTo-Json -Compress|Write-Output}else{Report 'direct metadata' $path $code}
+            $path=Join-Path $env:RUNNER_TEMP 'format-windows-args.log'
+            $PSNativeCommandArgumentPassing='Windows'
+            rustup run 1.98.1 cargo fmt --all -- --check --files-with-diff *> $path
+            Report 'Windows argument mode' $path $global:LASTEXITCODE
+            $path=Join-Path $env:RUNNER_TEMP 'format-legacy-args.log'
+            $PSNativeCommandArgumentPassing='Legacy'
+            rustup run 1.98.1 cargo fmt --all -- --check --files-with-diff *> $path
+            Report 'Legacy argument mode' $path $global:LASTEXITCODE
+          }finally{Pop-Location}
+          exit 0
