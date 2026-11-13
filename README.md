@@ -26,7 +26,7 @@
 - **打开与输出** — DXF/DWG 读取与写出基础，以及 PDF、SVG、PNG 输出；复杂外部图纸的完整保真仍在完善。
 - **按自己的方式操作** — 菜单、工具栏、命令行与 CLI；界面支持简体中文和英文。
 
-2.0.2 修复部分旧版 DWG 的保存问题，改善图层、特性和功能区操作。
+2.0.3 新增二维视图扭转和图纸图片显示，支持旋转当前视图出图，修复关联填充保存、字体打包及 macOS 文件框问题。
 
 Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体放入应用包，不再新增独立 CLI ZIP；桌面与 CLI 共用全部 80 份随包字体。原生多重引线限同外观水平多 root 等受控范围；动态块和高级外参仍有限，重要图纸请保留原件。
 
@@ -45,8 +45,8 @@ Windows 仅提供 MSI，CLI 随安装版提供。macOS 将 CLI 和共享字体�
 
 | 平台 | 适用设备 | 安装或使用文件 | 更新记录 |
 | --- | --- | --- | --- |
-| Windows | x64，建议 Windows 11 | `lees-cad-2.0.2-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
-| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-2.0.2-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Windows | x64，建议 Windows 11 | `lees-cad-2.0.3-windows-x64.msi` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
+| Mac | Apple Silicon，包声明 macOS 11.0+ | `lees-cad-2.0.3-macos-aarch64.dmg` | [发行版](https://github.com/lyq2010/lees-cad-releases/releases) |
 
 本次发行只提供 Windows x64 与 Mac Apple Silicon。包声明的最低系统版本尚未完成逐版本实机验收；Intel Mac、Windows ARM64 等架构不在本次发行范围。
 
